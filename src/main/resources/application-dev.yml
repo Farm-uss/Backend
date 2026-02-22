@@ -1,0 +1,42 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5433}/${DB_NAME:mydb}
+    username: ${DB_USERNAME:admin}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+server:
+  servlet:
+    encoding:
+      charset: UTF-8
+      force: true
+      enabled: true
+
+app:
+  jwt:
+    expiration-ms: 3600000
+    secret: ${JWT_SECRET}
+    access-ttl-minutes: 30
+
+google:
+  map:
+    api-key: ${GOOGLE_MAP_API_KEY}
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs
+  paths-to-match: /auth/**,/users/**,/farms/**
+
+swagger:
+  server-url: ${SWAGGER_SERVER_URL:http://localhost:8080}
