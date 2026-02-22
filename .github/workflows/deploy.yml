@@ -43,6 +43,7 @@ jobs:
           host: ${{ secrets.DB_HOST }} # 서버 IP
           username: ${{ secrets.USERNAME }} # 서버 접속 계정
           password: ${{ secrets.PASSWORD }} # 서버 접속 비번
+          port: ${{ secrets.SSH_PORT }}
           script: |
             cd /home/${{ secrets.USERNAME }}/app # 서버 내 프로젝트 위치
             docker-compose pull
