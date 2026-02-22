@@ -45,11 +45,17 @@ jobs:
           password: ${{ secrets.PASSWORD }} # 서버 접속 비번
           port: ${{ secrets.SSH_PORT }}
           script: |
-            cd /home/${{ secrets.USERNAME }}/app # 서버 내 프로젝트 위치
-            docker-compose pull
-            # 실행 시 금고의 비번들을 환경 변수로 주입!
+            cd /home/${{ secrets.USERNAME }}/app
+            
+            export DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}
+            export DB_HOST=${{ secrets.DB_HOST }}
+            export DB_PORT=${{ secrets.DB_PORT }}
+            export DB_NAME=${{ secrets.DB_NAME }}
+            export DB_USERNAME=${{ secrets.DB_USERNAME }}
             export DB_PASSWORD=${{ secrets.DB_PASSWORD }}
             export JWT_SECRET=${{ secrets.JWT_SECRET }}
             export GOOGLE_MAP_API_KEY=${{ secrets.GOOGLE_MAP_API_KEY }}
             export SWAGGER_SERVER_URL=${{ secrets.SWAGGER_SERVER_URL }}
+            
+            docker-compose pull
             docker-compose up -d
