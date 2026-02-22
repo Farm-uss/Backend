@@ -48,7 +48,7 @@ jobs:
             cd /home/${{ secrets.USERNAME }}/app
             
             export DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}
-            export DB_HOST=my-postgres
+            export DB_HOST=localhost
             export DB_PORT=5432
             export DB_NAME=${{ secrets.DB_NAME }}
             export DB_USERNAME=${{ secrets.DB_USERNAME }}
