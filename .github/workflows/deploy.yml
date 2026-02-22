@@ -40,24 +40,26 @@ jobs:
       - name: Deploy to Server
         uses: appleboy/ssh-action@master
         with:
-          host: ${{ secrets.DB_HOST }} # 서버 IP
-          username: ${{ secrets.USERNAME }} # 서버 접속 계정
-          password: ${{ secrets.PASSWORD }} # 서버 접속 비번
+          host: ${{ secrets.DB_HOST }}
+          username: ${{ secrets.USERNAME }}
+          password: ${{ secrets.PASSWORD }}
           port: ${{ secrets.SSH_PORT }}
           script: |
+            set -e
             cd /home/${{ secrets.USERNAME }}/app
-            
-            export DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}
-            export DB_HOST=localhost
-            export DB_PORT=5432
-            export DB_NAME=${{ secrets.DB_NAME }}
-            export DB_USERNAME=${{ secrets.DB_USERNAME }}
-            export DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-            export JWT_SECRET=${{ secrets.JWT_SECRET }}
-            export GOOGLE_MAP_API_KEY=${{ secrets.GOOGLE_MAP_API_KEY }}
-            export SWAGGER_SERVER_URL=${{ secrets.SWAGGER_SERVER_URL }}
-            
+
+            cat > .env <<'EOF'
+            DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}
+            DB_HOST=localhost
+            DB_PORT=${{ secrets.DB_PORT }}
+            DB_NAME=${{ secrets.DB_NAME }}
+            DB_USERNAME=${{ secrets.DB_USERNAME }}
+            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+            JWT_SECRET=${{ secrets.JWT_SECRET }}
+            GOOGLE_MAP_API_KEY=${{ secrets.GOOGLE_MAP_API_KEY }}
+            SWAGGER_SERVER_URL=${{ secrets.SWAGGER_SERVER_URL }}
+            EOF
+
             docker-compose down || true
-            
             docker-compose pull
             docker-compose up -d
