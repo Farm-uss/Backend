@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  app:
+    container_name: farmus-backend
+    image: ${DOCKER_USERNAME}/farmus-be:${IMAGE_TAG}
+    network_mode: "host"
+    env_file:
+      - .env
+    environment:
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE}
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:${DB_PORT}/${DB_NAME}
+      - SPRING_DATASOURCE_USERNAME=${DB_USERNAME}
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
+      - JWT_SECRET=${JWT_SECRET}
+      - GOOGLE_MAP_API_KEY=${GOOGLE_MAP_API_KEY}
+      - SWAGGER_SERVER_URL=${SWAGGER_SERVER_URL}
+      - GDD_SERVICE_KEY=${GDD_SERVICE_KEY}
+      - GDD_SCHEDULER_CRON=${GDD_SCHEDULER_CRON}
+      - CAMERA_STREAM_URL=${CAMERA_STREAM_URL}
+      - CAMERA_STREAM_PROTOCOL=${CAMERA_STREAM_PROTOCOL}
+      - CAMERA_STREAM_TTL_MINUTES=${CAMERA_STREAM_TTL_MINUTES}
+      - SPRING_APPLICATION_JSON={"file":{"upload-dir":"${FILE_UPLOAD_DIR}"}}
+    restart: always
