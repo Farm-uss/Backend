@@ -66,3 +66,8 @@ camera:
     default-url: ${CAMERA_STREAM_URL:}
     protocol: ${CAMERA_STREAM_PROTOCOL:MJPEG}
     ttl-minutes: ${CAMERA_STREAM_TTL_MINUTES:60}
+
+ai:
+  inference:
+    base-url: ${AI_INFERENCE_BASE_URL:http://localhost:8001}
+    predict-path: ${AI_INFERENCE_PREDICT_PATH:/predict}
