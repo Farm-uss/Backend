@@ -32,18 +32,18 @@ public interface CropGddDailyRepository extends JpaRepository<CropGddDaily, Long
                                            @Param("to") LocalDate to);
 
     /**
-     * Postgres UPSERT (crop_id + target_date 유니크 제약 필요)
+     * Postgres UPSERT (crops_id + target_date 유니크 제약 필요)
      */
     @Modifying
     @Transactional
-    @Query(value = """
+        @Query(value = """
         INSERT INTO crop_gdd_daily
-        (crop_id, target_date, gdd, gdd_normal_5y, base_temp,
+        (crops_id, target_date, gdd, gdd_normal_5y, base_temp,
          station_type, station_code, source, fetched_at, created_at, updated_at)
         VALUES
         (:cropId, :targetDate, :gdd, :gddNormal5y, :baseTemp,
          :stationType, :stationCode, :source, :fetchedAt, now(), now())
-        ON CONFLICT (crop_id, target_date)
+        ON CONFLICT (crops_id, target_date)
         DO UPDATE SET
             gdd = EXCLUDED.gdd,
             gdd_normal_5y = EXCLUDED.gdd_normal_5y,
