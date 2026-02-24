@@ -75,15 +75,19 @@ public class VisionInferenceService {
             throw new AppException(HttpStatus.BAD_REQUEST, "image is required");
         }
 
+        byte[] imageBytes = readUploadedImage(image);
+        String originalFilename = image.getOriginalFilename();
+        String contentType = image.getContentType();
+
         OffsetDateTime capturedAt = measuredAt == null ? OffsetDateTime.now(ZoneOffset.UTC) : measuredAt;
         ImageCapture capture = new ImageCapture();
         capture.setCapturedAt(capturedAt);
         capture.setCameraId(cameraId);
-        capture.setImagePath(saveCaptureImage(image));
+        capture.setImagePath(saveCaptureImage(imageBytes, originalFilename));
         capture = imageCaptureRepository.save(capture);
 
         String requestedTaskType = (taskType == null || taskType.isBlank()) ? "DISEASE_CLASSIFICATION" : taskType;
-        AiPredictResponse aiResponse = callAiServer(image, capture.getCaptureId(), requestedTaskType);
+        AiPredictResponse aiResponse = callAiServer(imageBytes, originalFilename, contentType, capture.getCaptureId(), requestedTaskType);
 
         VisionInference inference = new VisionInference();
         inference.setCapture(capture);
@@ -91,7 +95,7 @@ public class VisionInferenceService {
         inference.setTaskType(aiResponse.taskType());
         inference.setLabel(aiResponse.label());
         inference.setConfidence(aiResponse.confidence());
-        inference.setBboxJson(writeJson(aiResponse.bboxJson()));
+        inference.setBboxJson(aiResponse.bboxJson());
         inference.setInferredAt(aiResponse.inferredAt());
         inference.setCreatedAt(OffsetDateTime.now(ZoneOffset.UTC));
         inference.setUpdatedAt(OffsetDateTime.now(ZoneOffset.UTC));
@@ -107,7 +111,7 @@ public class VisionInferenceService {
         measurement.setLeafArea(aiResponse.sizeCm());
         measurement.setAiConfidence(aiResponse.confidence());
         measurement.setAiSummary(aiResponse.summary());
-        measurement.setAiRawJson(writeJson(aiResponse));
+        measurement.setAiRawJson(truncate(writeJson(aiResponse), 255));
         measurement.setCreatedAt(OffsetDateTime.now(ZoneOffset.UTC));
         measurement.setUpdatedAt(OffsetDateTime.now(ZoneOffset.UTC));
         growthMeasurementRepository.save(measurement);
@@ -125,19 +129,24 @@ public class VisionInferenceService {
         );
     }
 
-    private AiPredictResponse callAiServer(MultipartFile image, Long captureId, String taskType) {
+    private AiPredictResponse callAiServer(
+            byte[] imageBytes,
+            String originalFilename,
+            String contentType,
+            Long captureId,
+            String taskType
+    ) {
         try {
-            byte[] bytes = image.getBytes();
-            ByteArrayResource fileResource = new ByteArrayResource(bytes) {
+            ByteArrayResource fileResource = new ByteArrayResource(imageBytes) {
                 @Override
                 public String getFilename() {
-                    return image.getOriginalFilename() == null ? "capture.jpg" : image.getOriginalFilename();
+                    return originalFilename == null ? "capture.jpg" : originalFilename;
                 }
             };
 
             MultipartBodyBuilder bodyBuilder = new MultipartBodyBuilder();
             bodyBuilder.part("image", fileResource)
-                    .contentType(resolveContentType(image.getContentType()));
+                    .contentType(resolveContentType(contentType));
             bodyBuilder.part("task_type", taskType);
             bodyBuilder.part("capture_id", captureId);
 
@@ -154,8 +163,6 @@ public class VisionInferenceService {
                 throw new AppException(HttpStatus.BAD_GATEWAY, "empty response from ai server");
             }
             return response;
-        } catch (IOException e) {
-            throw new AppException(HttpStatus.BAD_REQUEST, "failed to read uploaded image");
         } catch (AppException e) {
             throw e;
         } catch (Exception e) {
@@ -163,24 +170,32 @@ public class VisionInferenceService {
         }
     }
 
-    private String saveCaptureImage(MultipartFile image) {
+    private String saveCaptureImage(byte[] imageBytes, String originalFilename) {
         String captureDirPath = uploadDir.endsWith("/") ? uploadDir + "captures/" : uploadDir + "/captures/";
         File captureDir = new File(captureDirPath);
         if (!captureDir.exists() && !captureDir.mkdirs()) {
             throw new AppException(HttpStatus.INTERNAL_SERVER_ERROR, "failed to create capture directory");
         }
 
-        String originalName = image.getOriginalFilename() == null ? "capture.jpg" : image.getOriginalFilename();
+        String originalName = originalFilename == null ? "capture.jpg" : originalFilename;
         String extension = extractExtension(originalName);
         String savedName = UUID.randomUUID() + extension;
         File target = new File(captureDir, savedName);
 
         try {
-            image.transferTo(target);
+            java.nio.file.Files.write(target.toPath(), imageBytes);
         } catch (IOException e) {
             throw new AppException(HttpStatus.INTERNAL_SERVER_ERROR, "failed to save capture image");
         }
         return target.getAbsolutePath();
+    }
+
+    private byte[] readUploadedImage(MultipartFile image) {
+        try {
+            return image.getBytes();
+        } catch (IOException e) {
+            throw new AppException(HttpStatus.BAD_REQUEST, "failed to read uploaded image");
+        }
     }
 
     private MediaType resolveContentType(String contentType) {
@@ -208,5 +223,15 @@ public class VisionInferenceService {
         } catch (JsonProcessingException e) {
             return "{}";
         }
+    }
+
+    private String truncate(String value, int maxLen) {
+        if (value == null) {
+            return null;
+        }
+        if (value.length() <= maxLen) {
+            return value;
+        }
+        return value.substring(0, maxLen);
     }
 }

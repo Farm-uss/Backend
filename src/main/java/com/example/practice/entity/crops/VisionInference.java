@@ -3,9 +3,12 @@ package com.example.practice.entity.crops;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.List;
 
 @Getter
 @Setter
@@ -30,8 +33,9 @@ public class VisionInference {
     @Column(name = "confidence")
     private BigDecimal confidence;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "bbox_json", columnDefinition = "jsonb")
-    private String bboxJson;
+    private List<Object> bboxJson;
 
     @Column(name = "inferred_at")
     private OffsetDateTime inferredAt;
