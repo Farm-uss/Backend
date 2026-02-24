@@ -33,6 +33,22 @@ public class Farm {
 
     private Double area;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "station_type", nullable = false, length = 10)
+    private StationType stationType = StationType.SPOT;
+
+    @Column(name = "obsr_spot_code", length = 20)
+    private String obsrSpotCode;
+
+    @Column(name = "zone_code", length = 20)
+    private String zoneCode;
+
+    @Column(name = "station_name", length = 50)
+    private String stationName;
+
+    @Column(name = "station_updated_at")
+    private OffsetDateTime stationUpdatedAt;
+
 }
 
 

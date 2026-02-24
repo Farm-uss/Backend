@@ -87,7 +87,7 @@ public class FarmService {
         // 3. 작물 저장
         Crops crop = new Crops();
         crop.setName(req.getCropName());
-        crop.setFarmId(savedFarm.getId());
+        crop.setFarm(savedFarm);
         cropsRepo.save(crop);
 
         // 4. 멤버 등록 (소유자)
@@ -138,7 +138,7 @@ public class FarmService {
                             .count();
 
                     // 작물 (기존 그대로)
-                    List<String> cropNames = cropsRepo.findAllByFarmId(farm.getId())
+                    List<String> cropNames = cropsRepo.findAllByFarm_Id(farm.getId())
                             .stream().map(Crops::getName).toList();
 
                     // 위치 Null 안전
@@ -188,7 +188,7 @@ public class FarmService {
             }
             // 2. 연관 데이터 삭제 (순서 중요: 자식부터 지우기)
             locationRepo.deleteByFarmId(farmId);
-            cropsRepo.deleteAllByFarmId(farmId);
+            cropsRepo.deleteAllByFarm_Id(farmId);
             farmMemberRepo.deleteAllByFarmId(farmId);
 
             // 3. 농장 본체 삭제
