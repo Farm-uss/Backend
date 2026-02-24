@@ -4,7 +4,6 @@ spring:
     username: ${DB_USERNAME:admin}
     password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
-
   jpa:
     hibernate:
       ddl-auto: update
@@ -31,7 +30,7 @@ server:
       enabled: true
 
 file:
-  upload-dir: ${FILE_UPLOAD_DIR:/home/farmus/uploads/}
+  upload-dir: ${FILE_UPLOAD_DIR:/home/farmus_images/}
 
 app:
   jwt:
@@ -48,7 +47,20 @@ springdoc:
     path: /swagger-ui.html
   api-docs:
     path: /v3/api-docs
-  paths-to-match: /auth/**,/users/**,/farms/**
+  paths-to-match: /auth/**,/users/**,/farms/**,/api/v1/crops/**
 
 swagger:
   server-url: ${SWAGGER_SERVER_URL:http://localhost:8080}
+
+gdd:
+  api:
+    base-url: https://apis.data.go.kr/1390802/AgriWeather/WeatherObsrInfo/GrwDay
+    service-key: ${GDD_SERVICE_KEY}
+  scheduler:
+    cron: ${GDD_SCHEDULER_CRON:0 10 3 * * *}
+
+camera:
+  stream:
+    default-url: ${CAMERA_STREAM_URL:}
+    protocol: ${CAMERA_STREAM_PROTOCOL:MJPEG}
+    ttl-minutes: ${CAMERA_STREAM_TTL_MINUTES:60}
