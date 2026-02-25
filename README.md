@@ -31,3 +31,43 @@
 - `CAMERA_STREAM_URL`
 - `CAMERA_STREAM_PROTOCOL`
 - `CAMERA_STREAM_TTL_MINUTES`
+
+## Local Docker (team shared)
+- File: `docker-compose.local.yml`
+- Example env: `.env.local.example`
+
+### 1) First setup
+```bash
+cp .env.local.example .env.local
+docker compose --env-file .env.local -f docker-compose.local.yml up -d
+```
+
+### 2) Check DB container
+```bash
+docker compose --env-file .env.local -f docker-compose.local.yml ps
+```
+
+### 3) Run backend with same DB
+```bash
+SPRING_PROFILES_ACTIVE=dev \
+DB_HOST=localhost \
+DB_PORT=5433 \
+DB_NAME=mydb \
+DB_USERNAME=admin \
+DB_PASSWORD=strongpass \
+JWT_SECRET=dev-secret-key-at-least-32-bytes-long-12345 \
+GOOGLE_MAP_API_KEY=dummy \
+GDD_SERVICE_KEY=dummy \
+FILE_UPLOAD_DIR=/tmp/farmus_images/ \
+AI_INFERENCE_BASE_URL=http://127.0.0.1:8001 \
+./gradlew bootRun
+```
+
+### 4) Stop
+```bash
+docker compose --env-file .env.local -f docker-compose.local.yml down
+```
+
+### Note
+- Compose config is shared in git, but container data is local for each teammate.
+- If you need same seed data, share SQL seed files and apply them after startup.

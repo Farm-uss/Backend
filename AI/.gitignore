@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+*.so
+.venv/
+.env
+.pytest_cache/
+.coverage
+htmlcov/
+.DS_Store
+
+# Model binaries
+model_store/*.pt
+model_store/*.pth
+model_store/*.bin
