@@ -4,6 +4,8 @@ import com.example.practice.common.config.TokenAuthFilter;
 import com.example.practice.dto.crops.VisionInferenceResponse;
 import com.example.practice.service.crops.VisionInferenceService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +30,12 @@ public class FarmCropVisionController {
     private final VisionInferenceService visionInferenceService;
 
     @Operation(summary = "작물 이미지 AI 추론", description = "이미지를 AI 서버로 전달해 병해 추론 후 DB에 저장합니다.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "추론 및 저장 성공"),
+            @ApiResponse(responseCode = "502", description = "AI 서버 응답 오류"),
+            @ApiResponse(responseCode = "503", description = "AI 서버 연결 실패"),
+            @ApiResponse(responseCode = "504", description = "AI 서버 타임아웃")
+    })
     @PostMapping("/{farmId}/crops/{cropsId}/vision-inference")
     public VisionInferenceResponse infer(
             @PathVariable Long farmId,

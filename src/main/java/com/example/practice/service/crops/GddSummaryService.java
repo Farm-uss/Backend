@@ -4,6 +4,7 @@ import com.example.practice.common.error.AppException;
 import com.example.practice.dto.crops.GddSummaryResponse;
 import com.example.practice.dto.crops.GddTimeSeriesResponse;
 import com.example.practice.dto.crops.GrowthDiaryDetailResponse;
+import com.example.practice.dto.crops.DiseaseLatestResponse;
 import com.example.practice.dto.crops.GrowthMetricResponse;
 import com.example.practice.entity.crops.CropGddDaily;
 import com.example.practice.entity.crops.CropGrowthStandard;
@@ -229,7 +230,9 @@ public class GddSummaryService {
             gdd = new GrowthDiaryDetailResponse.Gdd(gddDaily.getGdd(), cumulative);
         }
 
-        if (growth == null && gdd == null) {
+        GrowthDiaryDetailResponse.Disease disease = toDisease(growthMeasurement);
+
+        if (growth == null && gdd == null && disease == null) {
             throw new AppException(HttpStatus.NOT_FOUND, "growth diary not found for date");
         }
 
@@ -239,8 +242,28 @@ public class GddSummaryService {
                 null,
                 growth,
                 gdd,
-                null
+                disease
         );
+    }
+
+    @Transactional(readOnly = true)
+    public DiseaseLatestResponse getLatestDisease(Long farmId, Long cropsId, Long userId) {
+        getAccessibleCrop(farmId, cropsId, userId);
+
+        GrowthMeasurement latest = growthMeasurementRepository
+                .findTopByCrops_CropsIdAndAiConfidenceIsNotNullOrderByMeasuredAtDesc(cropsId)
+                .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, "latest disease inference not found"));
+
+        String verdict = safeText(latest.getAiVerdict());
+        String label = safeText(latest.getAiLabel());
+
+        String diseaseName = verdict != null ? verdict : label;
+        if (diseaseName == null) {
+            diseaseName = "unknown";
+        }
+
+        String status = "healthy".equalsIgnoreCase(diseaseName) ? "NORMAL" : "ABNORMAL";
+        return new DiseaseLatestResponse(status, diseaseName, latest.getAiConfidence(), latest.getMeasuredAt());
     }
 
     private BigDecimal resolveMetricValue(GrowthMetricType metric, GrowthMeasurement row) {
@@ -261,6 +284,29 @@ public class GddSummaryService {
 
     private BigDecimal resolveSizeCm(GrowthMeasurement row) {
         return row.getLeafArea();
+    }
+
+    private GrowthDiaryDetailResponse.Disease toDisease(GrowthMeasurement row) {
+        if (row == null || row.getAiConfidence() == null) {
+            return null;
+        }
+
+        String verdict = safeText(row.getAiVerdict());
+        String label = safeText(row.getAiLabel());
+        String diseaseName = verdict != null ? verdict : label;
+        if (diseaseName == null) {
+            diseaseName = "unknown";
+        }
+
+        return new GrowthDiaryDetailResponse.Disease(diseaseName, row.getAiConfidence());
+    }
+
+    private String safeText(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     private Integer diffInt(Integer current, Integer previous) {

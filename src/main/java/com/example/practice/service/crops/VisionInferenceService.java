@@ -25,13 +25,17 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientRequestException;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 
 import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.UUID;
+import java.util.concurrent.TimeoutException;
 
 @Service
 @RequiredArgsConstructor
@@ -53,6 +57,9 @@ public class VisionInferenceService {
 
     @Value("${ai.inference.predict-path:/predict}")
     private String aiPredictPath;
+
+    @Value("${ai.inference.timeout-ms:5000}")
+    private long aiTimeoutMs;
 
     @Transactional
     public VisionInferenceResponse inferAndSave(
@@ -111,6 +118,8 @@ public class VisionInferenceService {
         measurement.setLeafArea(aiResponse.sizeCm());
         measurement.setAiConfidence(aiResponse.confidence());
         measurement.setAiSummary(aiResponse.summary());
+        measurement.setAiVerdict(aiResponse.disease());
+        measurement.setAiLabel(aiResponse.label());
         measurement.setAiRawJson(truncate(writeJson(aiResponse), 255));
         measurement.setCreatedAt(OffsetDateTime.now(ZoneOffset.UTC));
         measurement.setUpdatedAt(OffsetDateTime.now(ZoneOffset.UTC));
@@ -157,6 +166,14 @@ public class VisionInferenceService {
                     .body(BodyInserters.fromMultipartData(bodyBuilder.build()))
                     .retrieve()
                     .bodyToMono(AiPredictResponse.class)
+                    .timeout(Duration.ofMillis(Math.max(aiTimeoutMs, 1000)))
+                    .onErrorMap(TimeoutException.class,
+                            ex -> new AppException(HttpStatus.GATEWAY_TIMEOUT, "ai server timeout"))
+                    .onErrorMap(WebClientRequestException.class,
+                            ex -> new AppException(HttpStatus.SERVICE_UNAVAILABLE, "ai server is unavailable"))
+                    .onErrorMap(WebClientResponseException.class,
+                            ex -> new AppException(HttpStatus.BAD_GATEWAY,
+                                    "ai server error: " + ex.getStatusCode().value()))
                     .block();
 
             if (response == null) {

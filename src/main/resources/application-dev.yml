@@ -71,3 +71,4 @@ ai:
   inference:
     base-url: ${AI_INFERENCE_BASE_URL:http://localhost:8001}
     predict-path: ${AI_INFERENCE_PREDICT_PATH:/predict}
+    timeout-ms: ${AI_INFERENCE_TIMEOUT_MS:5000}

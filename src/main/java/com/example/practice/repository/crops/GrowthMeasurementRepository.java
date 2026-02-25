@@ -25,4 +25,6 @@ public interface GrowthMeasurementRepository extends JpaRepository<GrowthMeasure
             OffsetDateTime from,
             OffsetDateTime to
     );
+
+    Optional<GrowthMeasurement> findTopByCrops_CropsIdAndAiConfidenceIsNotNullOrderByMeasuredAtDesc(Long cropsId);
 }

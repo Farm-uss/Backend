@@ -6,6 +6,7 @@ import com.example.practice.dto.crops.GddTimeSeriesResponse;
 import com.example.practice.dto.crops.GrowthDiaryCardResponse;
 import com.example.practice.dto.crops.GrowthDiaryDetailResponse;
 import com.example.practice.dto.crops.GrowthMetricResponse;
+import com.example.practice.dto.crops.DiseaseLatestResponse;
 import com.example.practice.entity.crops.GrowthMetricType;
 import com.example.practice.service.crops.GddSummaryService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -88,5 +89,15 @@ public class FarmCropGddController {
             @AuthenticationPrincipal TokenAuthFilter.UserPrincipal user
     ) {
         return gddSummaryService.getGrowthDiaryDetail(farmId, cropsId, user.id(), date);
+    }
+
+    @Operation(summary = "최신 병해 추론 결과", description = "작물의 가장 최근 병해 추론 결과(정상/비정상, 병명, 신뢰도)를 반환합니다.")
+    @GetMapping("/{farmId}/crops/{cropsId}/disease/latest")
+    public DiseaseLatestResponse getLatestDisease(
+            @PathVariable Long farmId,
+            @PathVariable Long cropsId,
+            @AuthenticationPrincipal TokenAuthFilter.UserPrincipal user
+    ) {
+        return gddSummaryService.getLatestDisease(farmId, cropsId, user.id());
     }
 }
