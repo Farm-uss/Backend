@@ -43,6 +43,12 @@ public class GrowthMeasurement {
     @Column(name = "ai_summary")
     private String aiSummary;
 
+    @Column(name = "ai_verdict", length = 50)
+    private String aiVerdict;
+
+    @Column(name = "ai_label", length = 100)
+    private String aiLabel;
+
     @Column(name = "ai_confidence", precision = 5, scale = 4)
     private BigDecimal aiConfidence;
 
