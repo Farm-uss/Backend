@@ -49,6 +49,8 @@ public class SecurityConfig {
                         // 인증 없이 접근 가능한 API
                         .requestMatchers(
                                 "/error",
+                                "/",
+                                "/health",
                                 "/auth/signup",
                                 "/auth/login",
                                 "/auth/refresh",
