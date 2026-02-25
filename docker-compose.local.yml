@@ -6,9 +6,9 @@ services:
     ports:
       - "${DB_PORT_HOST:-5433}:5432"
     environment:
-      POSTGRES_DB: ${DB_NAME:-mydb}
-      POSTGRES_USER: ${DB_USERNAME:-admin}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-strongpass}
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
       - farmus-postgres-data:/var/lib/postgresql/data
     healthcheck:
