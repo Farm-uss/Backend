@@ -11,6 +11,7 @@ import com.example.practice.repository.farm.FarmMemberRepository;
 import com.example.practice.repository.farm.FarmRepository;
 import com.example.practice.repository.location.LocationRepository;
 import com.example.practice.repository.user.UserRepository;
+import com.example.practice.service.aws.AwsS3Service;
 import lombok.RequiredArgsConstructor;
 import com.example.practice.entity.user.User;
 import org.springframework.beans.factory.annotation.Value;
@@ -38,12 +39,11 @@ public class FarmService {
     private final LocationRepository locationRepo; // 주입 필요
     private final CropsRepository cropsRepo;  // SecurityContext에서 userId 가져옴 가정
     private final FarmInvitationRepository invitationRepo;
+    private final AwsS3Service awsS3Service;
 
     @Value("${file.upload-dir}")
     private String uploadDir;
 
-    @Value("${file.default-image:default.png}")
-    private String defaultImagePath;
 
     // #1 농장 생성 + #3 자동 멤버 등록
     public Farm createFarm(FarmRequest req, MultipartFile image, Long currentUserId) {
@@ -51,22 +51,13 @@ public class FarmService {
         Farm farm = new Farm();
 
         //이미지 저장
-        String imagePath = null;
-
+        String imagePath;
         if (image != null && !image.isEmpty()) {
-            imagePath = saveImage(image);
+            imagePath = awsS3Service.upload(image, "farm");
         } else {
-            // 기본 이미지 설정 (파일 존재 확인 + 상대경로)
-            imagePath = defaultImagePath.startsWith(uploadDir)
-                    ? defaultImagePath
-                    : uploadDir + defaultImagePath;
-            // 실제 파일 복사 (없으면 에러 방지)
-            File defaultFile = new File(imagePath);
-            if (!defaultFile.exists()) {
-                // uploads/default.png 없으면 빈 문자열 또는 임시 기본값
-                imagePath = "/images/default-farm.png"; // 정적 리소스 경로
-            }
+            imagePath = "https://hansungfarmimg.s3.eu-north-1.amazonaws.com/farm/default.png";  // 기본이미지 미리 올려
         }
+        farm.setImagePath(imagePath);
 
         System.out.println("name = " + req.getName());
         farm.setImagePath(imagePath);
@@ -178,21 +169,21 @@ public class FarmService {
     }
 
     @Transactional
-        public void deleteFarm(Long farmId, Long userId) {
-            // 1. 권한 체크 (주인만 삭제 가능)
-            FarmMember member = farmMemberRepo.findByFarmIdAndUserId(farmId, userId)
-                    .orElseThrow(() -> new RuntimeException("해당 농장에 대한 권한이 없습니다."));
+    public void deleteFarm(Long farmId, Long userId) {
+        // 1. 권한 체크 (주인만 삭제 가능)
+        FarmMember member = farmMemberRepo.findByFarmIdAndUserId(farmId, userId)
+                .orElseThrow(() -> new RuntimeException("해당 농장에 대한 권한이 없습니다."));
 
-            if (member.getRole() != FarmRole.OWNER) {
-                throw new RuntimeException("농장주만 농장을 삭제할 수 있습니다.");
-            }
-            // 2. 연관 데이터 삭제 (순서 중요: 자식부터 지우기)
-            locationRepo.deleteByFarmId(farmId);
-            cropsRepo.deleteAllByFarm_Id(farmId);
-            farmMemberRepo.deleteAllByFarmId(farmId);
+        if (member.getRole() != FarmRole.OWNER) {
+            throw new RuntimeException("농장주만 농장을 삭제할 수 있습니다.");
+        }
+        // 2. 연관 데이터 삭제 (순서 중요: 자식부터 지우기)
+        locationRepo.deleteByFarmId(farmId);
+        cropsRepo.deleteAllByFarm_Id(farmId);
+        farmMemberRepo.deleteAllByFarmId(farmId);
 
-            // 3. 농장 본체 삭제
-            farmRepo.deleteById(farmId);
+        // 3. 농장 본체 삭제
+        farmRepo.deleteById(farmId);
 
     }
     @Transactional
