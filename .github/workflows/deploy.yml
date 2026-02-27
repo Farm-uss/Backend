@@ -70,6 +70,11 @@ jobs:
             CAMERA_STREAM_PROTOCOL=${{ secrets.CAMERA_STREAM_PROTOCOL }}
             CAMERA_STREAM_TTL_MINUTES=${{ secrets.CAMERA_STREAM_TTL_MINUTES }}
             FILE_UPLOAD_DIR=${{ secrets.FILE_UPLOAD_DIR }}
+            FILE_DEFAULT_IMG=${{ secrets.FILE_DEFAULT_IMG }}
+            AWS_ACCESS_KEY=${{ secrets.AWS_ACCESS_KEY }}
+            AWS_SECRET_KEY=${{ secrets.AWS_SECRET_KEY }}
+            AWS_REGION=${{ secrets.AWS_REGION }}
+            AWS_S3_BUCKET=${{ secrets.AWS_S3_BUCKET }}
             EOF
 
             cat > docker-compose.override.yml <<'EOF'

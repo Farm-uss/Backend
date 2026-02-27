@@ -19,11 +19,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.File;
 import java.time.OffsetDateTime;
 import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 
@@ -41,8 +38,9 @@ public class FarmService {
     private final FarmInvitationRepository invitationRepo;
     private final AwsS3Service awsS3Service;
 
-    @Value("${file.upload-dir}")
-    private String uploadDir;
+
+    @Value("${file.default_img}")
+    private String defaultImg;
 
 
     // #1 농장 생성 + #3 자동 멤버 등록
@@ -55,7 +53,7 @@ public class FarmService {
         if (image != null && !image.isEmpty()) {
             imagePath = awsS3Service.upload(image, "farm");
         } else {
-            imagePath = "https://hansungfarmimg.s3.eu-north-1.amazonaws.com/farm/default.png";  // 기본이미지 미리 올려
+            imagePath = defaultImg;  // 기본이미지 미리 올려
         }
         farm.setImagePath(imagePath);
 
@@ -189,12 +187,11 @@ public class FarmService {
     @Transactional
     public void inviteMember(Long farmId, Long inviterId, Long invitedUserId) {
 
-        Farm farm = farmRepo.findById(farmId)
-                .orElseThrow(() -> new RuntimeException("농장이 존재하지 않습니다."));
 
         FarmMember inviter = farmMemberRepo
                 .findByFarmIdAndUserId(farmId, inviterId)
                 .orElseThrow(() -> new RuntimeException("농장 멤버가 아닙니다."));
+
 
         if (inviter.getRole() != FarmRole.OWNER) {
             throw new FarmException("OWNER만 초대할 수 있습니다.");  // ← 변경
@@ -276,26 +273,6 @@ public class FarmService {
 
 
 
-    private String saveImage(MultipartFile file) {
-
-        try {
-            File dir = new File(uploadDir);
-            if (!dir.exists()) {
-                dir.mkdirs();
-            }
-
-            String originalName = file.getOriginalFilename();
-            String savedName = UUID.randomUUID() + "_" + originalName;
-
-            File saveFile = new File(uploadDir + savedName);
-            file.transferTo(saveFile);
-
-            return uploadDir + savedName;
-
-        } catch (Exception e) {
-            throw new RuntimeException("파일 저장 실패", e);
-        }
-    }
 
 }
 

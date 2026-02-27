@@ -33,6 +33,7 @@ server:
 
 file:
   upload-dir: ${FILE_UPLOAD_DIR:/home/farmus_images/}
+  default-img: ${FILE_DEFAULT_IMG}
 
 app:
   jwt:

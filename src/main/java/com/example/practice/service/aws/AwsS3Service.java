@@ -26,7 +26,11 @@ public class AwsS3Service {
         }
 
         try {
-            String fileName = UUID.randomUUID() + "_" + file.getOriginalFilename();
+            String originalFilename = file.getOriginalFilename();
+            if (originalFilename == null || originalFilename.isBlank()) {
+                originalFilename = "file";
+            }
+            String fileName = UUID.randomUUID() + "_" + originalFilename;
             String key = dirName + "/" + fileName;  // farm/uuid_filename.png
 
             ObjectMetadata metadata = new ObjectMetadata();
