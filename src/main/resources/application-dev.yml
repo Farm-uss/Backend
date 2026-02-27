@@ -73,12 +73,9 @@ ai:
     predict-path: ${AI_INFERENCE_PREDICT_PATH:/predict}
     timeout-ms: ${AI_INFERENCE_TIMEOUT_MS:5000}
 
-cloud:
-  aws:
-    credentials:
-      access-key: ${AWS_ACCESS_KEY}
-      secret-key: ${AWS_SECRET_KEY}
-      region:
-        static: eu-north-1
-      s3:
-        bucket: hansungfarmimg
+aws:
+  s3:
+    access-key: ${AWS_ACCESS_KEY}
+    secret-key: ${AWS_SECRET_KEY}
+    region: ${AWS_REGION}
+    bucket: ${AWS_S3_BUCKET}

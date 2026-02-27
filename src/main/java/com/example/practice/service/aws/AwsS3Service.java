@@ -17,7 +17,7 @@ public class AwsS3Service {
 
     private final AmazonS3 amazonS3;
 
-    @Value("${cloud.aws.s3.bucket}")
+    @Value("${aws.s3.bucket}")
     private String bucket;
 
     public String upload(MultipartFile file, String dirName) {
