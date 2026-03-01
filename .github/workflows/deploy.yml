@@ -119,6 +119,8 @@ jobs:
             EOF
 
             docker-compose --env-file .env pull app
+            docker-compose --env-file .env stop ai-inference-a || true
+            docker-compose --env-file .env rm -f ai-inference-a || true
             docker-compose --env-file .env stop app || true
             docker-compose --env-file .env rm -f app || true
             docker-compose --env-file .env up -d ai-inference-a
