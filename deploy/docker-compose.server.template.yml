@@ -20,5 +20,16 @@ services:
       - CAMERA_STREAM_URL=${CAMERA_STREAM_URL}
       - CAMERA_STREAM_PROTOCOL=${CAMERA_STREAM_PROTOCOL}
       - CAMERA_STREAM_TTL_MINUTES=${CAMERA_STREAM_TTL_MINUTES}
+      - AI_INFERENCE_BASE_URL=${AI_INFERENCE_BASE_URL}
+      - AI_INFERENCE_PREDICT_PATH=${AI_INFERENCE_PREDICT_PATH}
       - SPRING_APPLICATION_JSON={"file":{"upload-dir":"${FILE_UPLOAD_DIR}"}}
     restart: always
+
+  ai-inference-a:
+    container_name: kimphys-api-a
+    image: ${AI_A_IMAGE}
+    network_mode: "host"
+    command: >
+      bash -lc "pip install -q ujson &&
+      python /workspace/api_a.py"
+    restart: unless-stopped

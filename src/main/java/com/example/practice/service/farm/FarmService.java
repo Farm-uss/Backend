@@ -1,10 +1,12 @@
 package com.example.practice.service.farm;
 
 import com.example.practice.dto.farm.*;
+import com.example.practice.entity.crops.CropGrowthStandard;
 import com.example.practice.entity.crops.Crops;
 import com.example.practice.entity.farm.*;
 import com.example.practice.entity.location.Location;
 import com.example.practice.exception.FarmException;
+import com.example.practice.repository.crops.CropGrowthStandardRepository;
 import com.example.practice.repository.crops.CropsRepository;
 import com.example.practice.repository.farm.FarmInvitationRepository;
 import com.example.practice.repository.farm.FarmMemberRepository;
@@ -19,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -35,11 +38,12 @@ public class FarmService {
     private final LocationService locationService; // 주입 필요
     private final LocationRepository locationRepo; // 주입 필요
     private final CropsRepository cropsRepo;  // SecurityContext에서 userId 가져옴 가정
+    private final CropGrowthStandardRepository cropGrowthStandardRepository;
     private final FarmInvitationRepository invitationRepo;
     private final AwsS3Service awsS3Service;
 
 
-    @Value("${file.default_img}")
+    @Value("${file.default-img:}")
     private String defaultImg;
 
 
@@ -74,8 +78,13 @@ public class FarmService {
 
 
         // 3. 작물 저장
+        CropSelection selection = resolveCropSelection(req);
         Crops crop = new Crops();
-        crop.setName(req.getCropName());
+        crop.setName(selection.cropName());
+        crop.setCropCode(selection.cropCode());
+        crop.setGrowthStandard(selection.growthStandard());
+        crop.setBaseTemp(selection.baseTemp());
+        crop.setTargetGdd(selection.targetGdd());
         crop.setFarm(savedFarm);
         cropsRepo.save(crop);
 
@@ -90,6 +99,73 @@ public class FarmService {
         savedFarm.setLocation(location);
 
         return savedFarm;
+    }
+
+    private CropSelection resolveCropSelection(FarmRequest req) {
+        String requestedCode = normalizeCode(req.getCropCode());
+
+        if (requestedCode == null) {
+            if (isBlank(req.getCropName())) {
+                throw new FarmException("cropCode 또는 cropName은 필수입니다.");
+            }
+            CropGrowthStandard byName = cropGrowthStandardRepository.findByCropName(req.getCropName().trim())
+                    .orElseThrow(() -> new FarmException("지원하지 않는 cropName 입니다."));
+            return fromStandard(byName);
+        }
+
+        if ("99".equals(requestedCode)) {
+            if (isBlank(req.getCropName())) {
+                throw new FarmException("기타(99) 선택 시 cropName은 필수입니다.");
+            }
+            if (req.getBaseTemp() == null || req.getTargetGdd() == null) {
+                throw new FarmException("기타(99) 선택 시 baseTemp, targetGdd는 필수입니다.");
+            }
+            return new CropSelection(
+                    "99",
+                    req.getCropName().trim(),
+                    req.getBaseTemp(),
+                    req.getTargetGdd(),
+                    null
+            );
+        }
+
+        CropGrowthStandard standard = cropGrowthStandardRepository.findByCropCode(requestedCode)
+                .orElseThrow(() -> new FarmException("잘못된 cropCode 입니다: " + requestedCode));
+        return fromStandard(standard);
+    }
+
+    private CropSelection fromStandard(CropGrowthStandard standard) {
+        if (standard.getBaseTemp() == null || standard.getTargetGdd() == null) {
+            throw new FarmException("기준표에 baseTemp/targetGdd가 누락되어 있습니다. cropCode=" + standard.getCropCode());
+        }
+        return new CropSelection(
+                standard.getCropCode(),
+                standard.getCropName(),
+                standard.getBaseTemp(),
+                standard.getTargetGdd(),
+                standard
+        );
+    }
+
+    private String normalizeCode(String code) {
+        if (isBlank(code)) {
+            return null;
+        }
+        String trimmed = code.trim();
+        return trimmed.length() == 1 ? "0" + trimmed : trimmed;
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
+    }
+
+    private record CropSelection(
+            String cropCode,
+            String cropName,
+            BigDecimal baseTemp,
+            BigDecimal targetGdd,
+            CropGrowthStandard growthStandard
+    ) {
     }
 
     // #2 내 농장 목록 (farm_member 통해 소유 농장)
@@ -275,4 +351,3 @@ public class FarmService {
 
 
 }
-

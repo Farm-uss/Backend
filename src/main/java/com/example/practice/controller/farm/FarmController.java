@@ -10,16 +10,14 @@ import com.example.practice.common.config.TokenAuthFilter.UserPrincipal;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Tag(name = "Farm", description = "농장 API")
@@ -36,7 +34,10 @@ public class FarmController {
             @RequestParam("name") String name,
             @RequestParam("area") Double area,
             @RequestParam("address") String address,
-            @RequestParam("cropName") String cropName,
+            @RequestParam(value = "cropName", required = false) String cropName,
+            @RequestParam(value = "cropCode", required = false) String cropCode,
+            @RequestParam(value = "baseTemp", required = false) BigDecimal baseTemp,
+            @RequestParam(value = "targetGdd", required = false) BigDecimal targetGdd,
             @RequestPart(value = "image", required = false) MultipartFile image,
             @AuthenticationPrincipal UserPrincipal user
     ) {
@@ -45,6 +46,9 @@ public class FarmController {
         req.setArea(area);
         req.setAddress(address);
         req.setCropName(cropName);
+        req.setCropCode(cropCode);
+        req.setBaseTemp(baseTemp);
+        req.setTargetGdd(targetGdd);
 
         Farm farm = farmService.createFarm(req, image, user.id());
         return ResponseEntity.ok(FarmResponse.from(farm, FarmRole.OWNER));

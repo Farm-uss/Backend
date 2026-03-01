@@ -21,6 +21,9 @@ public class Crops {
     @Column(name = "name")
     private String name;
 
+    @Column(name = "crop_code", length = 2)
+    private String cropCode;
+
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "farm_id", nullable = false)
