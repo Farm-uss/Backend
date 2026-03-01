@@ -10,6 +10,7 @@
 - 템플릿 파일:
   - `deploy/docker-compose.server.template.yml`
   - `deploy/.env.server.template`
+  - `kimphys/62_a:v2.0` 기반 `ai-inference-a(kimphys-api-a)` 서비스 포함
 
 ### Required GitHub Secrets
 - `DOCKER_USERNAME`
@@ -31,6 +32,11 @@
 - `CAMERA_STREAM_URL`
 - `CAMERA_STREAM_PROTOCOL`
 - `CAMERA_STREAM_TTL_MINUTES`
+- `FILE_DEFAULT_IMG`
+- `AWS_ACCESS_KEY`
+- `AWS_SECRET_KEY`
+- `AWS_REGION`
+- `AWS_S3_BUCKET`
 
 ## Local Docker (team shared)
 - File: `docker-compose.local.yml`
@@ -52,9 +58,9 @@ docker compose --env-file .env.local -f docker-compose.local.yml ps
 SPRING_PROFILES_ACTIVE=dev \
 DB_HOST=localhost \
 DB_PORT=5433 \
-DB_NAME=mydb \
-DB_USERNAME=admin \
-DB_PASSWORD=strongpass \
+DB_NAME=dummy\
+DB_USERNAME=dummy \
+DB_PASSWORD=dummy \
 JWT_SECRET=dev-secret-key-at-least-32-bytes-long-12345 \
 GOOGLE_MAP_API_KEY=dummy \
 GDD_SERVICE_KEY=dummy \
