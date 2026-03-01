@@ -39,7 +39,7 @@ public class FarmService {
     private final AwsS3Service awsS3Service;
 
 
-    @Value("${file.default_img}")
+    @Value("${file.default-img:}")
     private String defaultImg;
 
 
@@ -275,4 +275,3 @@ public class FarmService {
 
 
 }
-
