@@ -57,6 +57,9 @@ public class SecurityConfig {
                                 "/auth/**"
                         ).permitAll()
 
+                        .requestMatchers("/api/devices/**").permitAll()
+                        .requestMatchers("/api/env-data/**").permitAll()
+
                         // 나머지는 JWT 인증
                         .anyRequest().authenticated()
                 )

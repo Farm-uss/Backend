@@ -41,4 +41,8 @@ public class ApiResponse<T> {
     public static <T> ApiResponse<T> error(AppException e) {
         return new ApiResponse<>("error", null, e.getMessage());
     }
+
+    public static ApiResponse<Void> success() {
+        return new ApiResponse<>("success", null, null);
+    }
 }
