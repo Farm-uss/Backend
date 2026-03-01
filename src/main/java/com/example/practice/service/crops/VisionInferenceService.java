@@ -13,6 +13,7 @@ import com.example.practice.repository.crops.ImageCaptureRepository;
 import com.example.practice.repository.crops.VisionInferenceRepository;
 import com.example.practice.repository.farm.FarmMemberRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -34,6 +35,8 @@ import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeoutException;
 
@@ -159,13 +162,13 @@ public class VisionInferenceService {
             bodyBuilder.part("task_type", taskType);
             bodyBuilder.part("capture_id", captureId);
 
-            AiPredictResponse response = webClientBuilder.baseUrl(aiBaseUrl).build()
+            JsonNode rawResponse = webClientBuilder.baseUrl(aiBaseUrl).build()
                     .post()
                     .uri(aiPredictPath)
                     .contentType(MediaType.MULTIPART_FORM_DATA)
                     .body(BodyInserters.fromMultipartData(bodyBuilder.build()))
                     .retrieve()
-                    .bodyToMono(AiPredictResponse.class)
+                    .bodyToMono(JsonNode.class)
                     .timeout(Duration.ofMillis(Math.max(aiTimeoutMs, 1000)))
                     .onErrorMap(TimeoutException.class,
                             ex -> new AppException(HttpStatus.GATEWAY_TIMEOUT, "ai server timeout"))
@@ -176,15 +179,211 @@ public class VisionInferenceService {
                                     "ai server error: " + ex.getStatusCode().value()))
                     .block();
 
-            if (response == null) {
+            if (rawResponse == null) {
                 throw new AppException(HttpStatus.BAD_GATEWAY, "empty response from ai server");
             }
-            return response;
+
+            AiPredictResponse parsed = objectMapper.treeToValue(rawResponse, AiPredictResponse.class);
+            return normalizeAiResponse(parsed, rawResponse, taskType);
+        } catch (JsonProcessingException e) {
+            throw new AppException(HttpStatus.BAD_GATEWAY, "invalid ai response format");
         } catch (AppException e) {
             throw e;
         } catch (Exception e) {
             throw new AppException(HttpStatus.BAD_GATEWAY, "failed to call ai server");
         }
+    }
+
+    private AiPredictResponse normalizeAiResponse(AiPredictResponse parsed, JsonNode raw, String requestedTaskType) {
+        String disease = firstNonBlank(
+                parsed.disease(),
+                parsed.label(),
+                textValue(raw, "predictions"),
+                "unknown"
+        );
+
+        String label = firstNonBlank(parsed.label(), textValue(raw, "label"), disease);
+
+        BigDecimal confidence = firstNonNull(
+                parsed.confidence(),
+                decimalValue(raw, "confidence"),
+                decimalValue(raw, "score"),
+                decimalValue(raw, "probability"),
+                top1Probability(parsed.top3())
+        );
+        if (confidence == null) {
+            confidence = BigDecimal.ZERO;
+        }
+
+        String abnormalReason = firstNonBlank(parsed.abnormalReason(), textValue(raw, "abnormal_reason"));
+        Boolean abnormalFlag = booleanValue(raw, "is_abnormal");
+        boolean abnormal = abnormalFlag != null ? abnormalFlag : inferAbnormal(disease, abnormalReason);
+
+        Boolean unknownFlag = booleanValue(raw, "is_unknown");
+        boolean unknown = unknownFlag != null ? unknownFlag : "unknown".equalsIgnoreCase(disease);
+
+        String modelName = firstNonBlank(parsed.modelName(), textValue(raw, "model_name"), "external-model");
+        String modelVersion = firstNonBlank(parsed.modelVersion(), textValue(raw, "model_version"), "unknown");
+        String taskType = firstNonBlank(parsed.taskType(), textValue(raw, "task_type"), requestedTaskType);
+
+        List<Object> bboxJson = parsed.bboxJson();
+        if (bboxJson == null || bboxJson.isEmpty()) {
+            bboxJson = listValue(raw, "bbox_json", "bbox");
+        }
+
+        OffsetDateTime inferredAt = parsed.inferredAt() == null
+                ? OffsetDateTime.now(ZoneOffset.UTC)
+                : parsed.inferredAt();
+
+        Integer leafCount = firstNonNull(parsed.leafCount(), intValue(raw, "leaf_count"), intValue(raw, "leafCount"));
+        Integer fruitCount = firstNonNull(parsed.fruitCount(), intValue(raw, "fruit_count"), intValue(raw, "fruitCount"));
+        BigDecimal sizeCm = firstNonNull(parsed.sizeCm(), decimalValue(raw, "size_cm"), decimalValue(raw, "sizeCm"));
+        String summary = firstNonBlank(parsed.summary(), textValue(raw, "summary"));
+
+        return new AiPredictResponse(
+                disease,
+                confidence,
+                unknown,
+                abnormal,
+                abnormalReason,
+                modelVersion,
+                modelName,
+                taskType,
+                label,
+                bboxJson,
+                inferredAt,
+                parsed.top3(),
+                leafCount,
+                fruitCount,
+                sizeCm,
+                summary
+        );
+    }
+
+    private boolean inferAbnormal(String disease, String abnormalReason) {
+        if (abnormalReason != null && !abnormalReason.isBlank()) {
+            return true;
+        }
+        if (disease == null) {
+            return false;
+        }
+        String normalized = disease.trim().toLowerCase();
+        return !("00".equals(normalized) || "healthy".equals(normalized) || "normal".equals(normalized));
+    }
+
+    private BigDecimal top1Probability(List<AiPredictResponse.TopKItem> top3) {
+        if (top3 == null || top3.isEmpty() || top3.get(0) == null) {
+            return null;
+        }
+        return top3.get(0).p();
+    }
+
+    private String textValue(JsonNode raw, String key) {
+        JsonNode node = raw.get(key);
+        if (node == null || node.isNull()) {
+            return null;
+        }
+        String value = node.asText(null);
+        return value == null || value.isBlank() ? null : value;
+    }
+
+    private BigDecimal decimalValue(JsonNode raw, String key) {
+        JsonNode node = raw.get(key);
+        if (node == null || node.isNull()) {
+            return null;
+        }
+        if (node.isNumber()) {
+            return node.decimalValue();
+        }
+        if (node.isTextual()) {
+            try {
+                return new BigDecimal(node.asText().trim());
+            } catch (NumberFormatException ignored) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    private Integer intValue(JsonNode raw, String key) {
+        JsonNode node = raw.get(key);
+        if (node == null || node.isNull()) {
+            return null;
+        }
+        if (node.isInt() || node.isLong()) {
+            return node.asInt();
+        }
+        if (node.isTextual()) {
+            try {
+                return Integer.parseInt(node.asText().trim());
+            } catch (NumberFormatException ignored) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    private Boolean booleanValue(JsonNode raw, String key) {
+        JsonNode node = raw.get(key);
+        if (node == null || node.isNull()) {
+            return null;
+        }
+        if (node.isBoolean()) {
+            return node.booleanValue();
+        }
+        if (node.isTextual()) {
+            String value = node.asText().trim();
+            if ("true".equalsIgnoreCase(value)) {
+                return true;
+            }
+            if ("false".equalsIgnoreCase(value)) {
+                return false;
+            }
+        }
+        return null;
+    }
+
+    private List<Object> listValue(JsonNode raw, String primaryKey, String fallbackKey) {
+        JsonNode node = raw.get(primaryKey);
+        if (node == null || node.isNull()) {
+            node = raw.get(fallbackKey);
+        }
+        if (node == null || node.isNull()) {
+            return null;
+        }
+        if (node.isArray()) {
+            List<Object> converted = new ArrayList<>();
+            for (JsonNode item : node) {
+                converted.add(objectMapper.convertValue(item, Object.class));
+            }
+            return converted;
+        }
+        return null;
+    }
+
+    @SafeVarargs
+    private static <T> T firstNonNull(T... values) {
+        if (values == null) {
+            return null;
+        }
+        for (T value : values) {
+            if (value != null) {
+                return value;
+            }
+        }
+        return null;
+    }
+
+    private String firstNonBlank(String... values) {
+        if (values == null) {
+            return null;
+        }
+        for (String value : values) {
+            if (value != null && !value.isBlank()) {
+                return value;
+            }
+        }
+        return null;
     }
 
     private String saveCaptureImage(byte[] imageBytes, String originalFilename) {
