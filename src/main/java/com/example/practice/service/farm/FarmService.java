@@ -1,16 +1,19 @@
 package com.example.practice.service.farm;
 
 import com.example.practice.dto.farm.*;
+import com.example.practice.entity.crops.CropGrowthStandard;
 import com.example.practice.entity.crops.Crops;
 import com.example.practice.entity.farm.*;
 import com.example.practice.entity.location.Location;
 import com.example.practice.exception.FarmException;
+import com.example.practice.repository.crops.CropGrowthStandardRepository;
 import com.example.practice.repository.crops.CropsRepository;
 import com.example.practice.repository.farm.FarmInvitationRepository;
 import com.example.practice.repository.farm.FarmMemberRepository;
 import com.example.practice.repository.farm.FarmRepository;
 import com.example.practice.repository.location.LocationRepository;
 import com.example.practice.repository.user.UserRepository;
+import com.example.practice.service.aws.AwsS3Service;
 import lombok.RequiredArgsConstructor;
 import com.example.practice.entity.user.User;
 import org.springframework.beans.factory.annotation.Value;
@@ -18,11 +21,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.File;
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 
@@ -37,13 +38,14 @@ public class FarmService {
     private final LocationService locationService; // 주입 필요
     private final LocationRepository locationRepo; // 주입 필요
     private final CropsRepository cropsRepo;  // SecurityContext에서 userId 가져옴 가정
+    private final CropGrowthStandardRepository cropGrowthStandardRepository;
     private final FarmInvitationRepository invitationRepo;
+    private final AwsS3Service awsS3Service;
 
-    @Value("${file.upload-dir}")
-    private String uploadDir;
 
-    @Value("${file.default-image:default.png}")
-    private String defaultImagePath;
+    @Value("${file.default-img:}")
+    private String defaultImg;
+
 
     // #1 농장 생성 + #3 자동 멤버 등록
     public Farm createFarm(FarmRequest req, MultipartFile image, Long currentUserId) {
@@ -51,22 +53,13 @@ public class FarmService {
         Farm farm = new Farm();
 
         //이미지 저장
-        String imagePath = null;
-
+        String imagePath;
         if (image != null && !image.isEmpty()) {
-            imagePath = saveImage(image);
+            imagePath = awsS3Service.upload(image, "farm");
         } else {
-            // 기본 이미지 설정 (파일 존재 확인 + 상대경로)
-            imagePath = defaultImagePath.startsWith(uploadDir)
-                    ? defaultImagePath
-                    : uploadDir + defaultImagePath;
-            // 실제 파일 복사 (없으면 에러 방지)
-            File defaultFile = new File(imagePath);
-            if (!defaultFile.exists()) {
-                // uploads/default.png 없으면 빈 문자열 또는 임시 기본값
-                imagePath = "/images/default-farm.png"; // 정적 리소스 경로
-            }
+            imagePath = defaultImg;  // 기본이미지 미리 올려
         }
+        farm.setImagePath(imagePath);
 
         System.out.println("name = " + req.getName());
         farm.setImagePath(imagePath);
@@ -85,8 +78,13 @@ public class FarmService {
 
 
         // 3. 작물 저장
+        CropSelection selection = resolveCropSelection(req);
         Crops crop = new Crops();
-        crop.setName(req.getCropName());
+        crop.setName(selection.cropName());
+        crop.setCropCode(selection.cropCode());
+        crop.setGrowthStandard(selection.growthStandard());
+        crop.setBaseTemp(selection.baseTemp());
+        crop.setTargetGdd(selection.targetGdd());
         crop.setFarm(savedFarm);
         cropsRepo.save(crop);
 
@@ -101,6 +99,73 @@ public class FarmService {
         savedFarm.setLocation(location);
 
         return savedFarm;
+    }
+
+    private CropSelection resolveCropSelection(FarmRequest req) {
+        String requestedCode = normalizeCode(req.getCropCode());
+
+        if (requestedCode == null) {
+            if (isBlank(req.getCropName())) {
+                throw new FarmException("cropCode 또는 cropName은 필수입니다.");
+            }
+            CropGrowthStandard byName = cropGrowthStandardRepository.findByCropName(req.getCropName().trim())
+                    .orElseThrow(() -> new FarmException("지원하지 않는 cropName 입니다."));
+            return fromStandard(byName);
+        }
+
+        if ("99".equals(requestedCode)) {
+            if (isBlank(req.getCropName())) {
+                throw new FarmException("기타(99) 선택 시 cropName은 필수입니다.");
+            }
+            if (req.getBaseTemp() == null || req.getTargetGdd() == null) {
+                throw new FarmException("기타(99) 선택 시 baseTemp, targetGdd는 필수입니다.");
+            }
+            return new CropSelection(
+                    "99",
+                    req.getCropName().trim(),
+                    req.getBaseTemp(),
+                    req.getTargetGdd(),
+                    null
+            );
+        }
+
+        CropGrowthStandard standard = cropGrowthStandardRepository.findByCropCode(requestedCode)
+                .orElseThrow(() -> new FarmException("잘못된 cropCode 입니다: " + requestedCode));
+        return fromStandard(standard);
+    }
+
+    private CropSelection fromStandard(CropGrowthStandard standard) {
+        if (standard.getBaseTemp() == null || standard.getTargetGdd() == null) {
+            throw new FarmException("기준표에 baseTemp/targetGdd가 누락되어 있습니다. cropCode=" + standard.getCropCode());
+        }
+        return new CropSelection(
+                standard.getCropCode(),
+                standard.getCropName(),
+                standard.getBaseTemp(),
+                standard.getTargetGdd(),
+                standard
+        );
+    }
+
+    private String normalizeCode(String code) {
+        if (isBlank(code)) {
+            return null;
+        }
+        String trimmed = code.trim();
+        return trimmed.length() == 1 ? "0" + trimmed : trimmed;
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
+    }
+
+    private record CropSelection(
+            String cropCode,
+            String cropName,
+            BigDecimal baseTemp,
+            BigDecimal targetGdd,
+            CropGrowthStandard growthStandard
+    ) {
     }
 
     // #2 내 농장 목록 (farm_member 통해 소유 농장)
@@ -178,32 +243,31 @@ public class FarmService {
     }
 
     @Transactional
-        public void deleteFarm(Long farmId, Long userId) {
-            // 1. 권한 체크 (주인만 삭제 가능)
-            FarmMember member = farmMemberRepo.findByFarmIdAndUserId(farmId, userId)
-                    .orElseThrow(() -> new RuntimeException("해당 농장에 대한 권한이 없습니다."));
+    public void deleteFarm(Long farmId, Long userId) {
+        // 1. 권한 체크 (주인만 삭제 가능)
+        FarmMember member = farmMemberRepo.findByFarmIdAndUserId(farmId, userId)
+                .orElseThrow(() -> new RuntimeException("해당 농장에 대한 권한이 없습니다."));
 
-            if (member.getRole() != FarmRole.OWNER) {
-                throw new RuntimeException("농장주만 농장을 삭제할 수 있습니다.");
-            }
-            // 2. 연관 데이터 삭제 (순서 중요: 자식부터 지우기)
-            locationRepo.deleteByFarmId(farmId);
-            cropsRepo.deleteAllByFarm_Id(farmId);
-            farmMemberRepo.deleteAllByFarmId(farmId);
+        if (member.getRole() != FarmRole.OWNER) {
+            throw new RuntimeException("농장주만 농장을 삭제할 수 있습니다.");
+        }
+        // 2. 연관 데이터 삭제 (순서 중요: 자식부터 지우기)
+        locationRepo.deleteByFarmId(farmId);
+        cropsRepo.deleteAllByFarm_Id(farmId);
+        farmMemberRepo.deleteAllByFarmId(farmId);
 
-            // 3. 농장 본체 삭제
-            farmRepo.deleteById(farmId);
+        // 3. 농장 본체 삭제
+        farmRepo.deleteById(farmId);
 
     }
     @Transactional
     public void inviteMember(Long farmId, Long inviterId, Long invitedUserId) {
 
-        Farm farm = farmRepo.findById(farmId)
-                .orElseThrow(() -> new RuntimeException("농장이 존재하지 않습니다."));
 
         FarmMember inviter = farmMemberRepo
                 .findByFarmIdAndUserId(farmId, inviterId)
                 .orElseThrow(() -> new RuntimeException("농장 멤버가 아닙니다."));
+
 
         if (inviter.getRole() != FarmRole.OWNER) {
             throw new FarmException("OWNER만 초대할 수 있습니다.");  // ← 변경
@@ -285,26 +349,5 @@ public class FarmService {
 
 
 
-    private String saveImage(MultipartFile file) {
-
-        try {
-            File dir = new File(uploadDir);
-            if (!dir.exists()) {
-                dir.mkdirs();
-            }
-
-            String originalName = file.getOriginalFilename();
-            String savedName = UUID.randomUUID() + "_" + originalName;
-
-            File saveFile = new File(uploadDir + savedName);
-            file.transferTo(saveFile);
-
-            return uploadDir + savedName;
-
-        } catch (Exception e) {
-            throw new RuntimeException("파일 저장 실패", e);
-        }
-    }
 
 }
-
