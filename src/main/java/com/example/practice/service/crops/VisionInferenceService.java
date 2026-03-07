@@ -2,16 +2,22 @@ package com.example.practice.service.crops;
 
 import com.example.practice.common.error.AppException;
 import com.example.practice.dto.crops.AiPredictResponse;
-import com.example.practice.dto.crops.VisionInferenceResponse;
+import com.example.practice.dto.crops.DiseaseCheckData;
+import com.example.practice.dto.crops.VisionInferenceCheckResponse;
 import com.example.practice.entity.crops.Crops;
+import com.example.practice.entity.crops.DiseaseGuide;
+import com.example.practice.entity.crops.DiseaseGuideType;
+import com.example.practice.entity.crops.DiseaseInfo;
 import com.example.practice.entity.crops.GrowthMeasurement;
 import com.example.practice.entity.crops.ImageCapture;
 import com.example.practice.entity.crops.VisionInference;
 import com.example.practice.repository.crops.CropsRepository;
+import com.example.practice.repository.crops.DiseaseInfoRepository;
 import com.example.practice.repository.crops.GrowthMeasurementRepository;
 import com.example.practice.repository.crops.ImageCaptureRepository;
 import com.example.practice.repository.crops.VisionInferenceRepository;
 import com.example.practice.repository.farm.FarmMemberRepository;
+import com.example.practice.service.aws.AwsS3Service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -37,8 +43,11 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeoutException;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -49,6 +58,8 @@ public class VisionInferenceService {
     private final ImageCaptureRepository imageCaptureRepository;
     private final VisionInferenceRepository visionInferenceRepository;
     private final GrowthMeasurementRepository growthMeasurementRepository;
+    private final DiseaseInfoRepository diseaseInfoRepository;
+    private final AwsS3Service awsS3Service;
     private final WebClient.Builder webClientBuilder;
     private final ObjectMapper objectMapper;
 
@@ -64,8 +75,14 @@ public class VisionInferenceService {
     @Value("${ai.inference.timeout-ms:5000}")
     private long aiTimeoutMs;
 
+    private static final Map<String, String> DISEASE_CODE_ALIASES = Map.of(
+            "leaf_blight", "a7",
+            "powdery_mildew", "a3",
+            "rust", "a5"
+    );
+
     @Transactional
-    public VisionInferenceResponse inferAndSave(
+    public VisionInferenceCheckResponse inferAndSave(
             Long farmId,
             Long cropsId,
             Long userId,
@@ -90,17 +107,17 @@ public class VisionInferenceService {
         String contentType = image.getContentType();
 
         OffsetDateTime capturedAt = measuredAt == null ? OffsetDateTime.now(ZoneOffset.UTC) : measuredAt;
-        ImageCapture capture = new ImageCapture();
-        capture.setCapturedAt(capturedAt);
-        capture.setCameraId(cameraId);
-        capture.setImagePath(saveCaptureImage(imageBytes, originalFilename));
-        capture = imageCaptureRepository.save(capture);
+        ImageCapture uploadedImage = new ImageCapture();
+        uploadedImage.setCapturedAt(capturedAt);
+        uploadedImage.setCameraId(cameraId);
+        uploadedImage.setImagePath(uploadUploadedImage(imageBytes, originalFilename, contentType));
+        uploadedImage = imageCaptureRepository.save(uploadedImage);
 
         String requestedTaskType = (taskType == null || taskType.isBlank()) ? "DISEASE_CLASSIFICATION" : taskType;
-        AiPredictResponse aiResponse = callAiServer(imageBytes, originalFilename, contentType, capture.getCaptureId(), requestedTaskType);
+        AiPredictResponse aiResponse = callAiServer(imageBytes, originalFilename, contentType, uploadedImage.getCaptureId(), requestedTaskType);
 
         VisionInference inference = new VisionInference();
-        inference.setCapture(capture);
+        inference.setCapture(uploadedImage);
         inference.setModelName(aiResponse.modelName());
         inference.setTaskType(aiResponse.taskType());
         inference.setLabel(aiResponse.label());
@@ -128,13 +145,59 @@ public class VisionInferenceService {
         measurement.setUpdatedAt(OffsetDateTime.now(ZoneOffset.UTC));
         growthMeasurementRepository.save(measurement);
 
-        return new VisionInferenceResponse(
-                capture.getCaptureId(),
+        DiseaseCheckData data = toCheckData(uploadedImage, inference, aiResponse);
+        return VisionInferenceCheckResponse.ok(
+                data
+        );
+    }
+
+    private DiseaseCheckData toCheckData(ImageCapture uploadedImage, VisionInference inference, AiPredictResponse aiResponse) {
+        String normalizedDisease = normalizeDiseaseKey(aiResponse.disease(), aiResponse.label());
+        int diseaseStatus = isHealthyLike(normalizedDisease) ? 0 : 1;
+        int confidencePercent = toPercent(aiResponse.confidence());
+
+        if (diseaseStatus == 0) {
+            return new DiseaseCheckData(
+                    0,
+                    "healthy",
+                    "정상",
+                    "현재 병해충 징후가 뚜렷하지 않습니다.",
+                    confidencePercent,
+                    List.of(),
+                    List.of(),
+                    List.of(),
+                    uploadedImage.getCaptureId(),
+                    inference.getInferenceId(),
+                    aiResponse.modelName(),
+                    aiResponse.modelVersion(),
+                    aiResponse.inferredAt()
+            );
+        }
+
+        DiseaseInfo info = diseaseInfoRepository.findByDiseaseIdAndActiveTrue(normalizedDisease).orElse(null);
+        List<String> causes = guideList(info, DiseaseGuideType.CAUSE);
+        List<String> symptoms = guideList(info, DiseaseGuideType.SYMPTOM);
+        List<String> solutions = guideList(info, DiseaseGuideType.SOLUTION);
+        String diseaseId = info != null ? info.getDiseaseId() : normalizedDisease;
+        String diseaseName = info != null ? info.getDiseaseName() : "질병 미확정";
+        String diseaseDescription = info != null
+                ? safeText(info.getDiseaseDescription())
+                : "해당 질병 코드에 대한 설명 데이터가 등록되지 않았습니다.";
+        if (diseaseDescription == null) {
+            diseaseDescription = "해당 질병 코드에 대한 설명 데이터가 등록되지 않았습니다.";
+        }
+
+        return new DiseaseCheckData(
+                1,
+                diseaseId,
+                diseaseName,
+                diseaseDescription,
+                confidencePercent,
+                causes,
+                symptoms,
+                solutions,
+                uploadedImage.getCaptureId(),
                 inference.getInferenceId(),
-                aiResponse.disease(),
-                aiResponse.confidence(),
-                aiResponse.isAbnormal(),
-                aiResponse.abnormalReason(),
                 aiResponse.modelName(),
                 aiResponse.modelVersion(),
                 aiResponse.inferredAt()
@@ -264,11 +327,68 @@ public class VisionInferenceService {
         if (abnormalReason != null && !abnormalReason.isBlank()) {
             return true;
         }
+        return !isHealthyLike(disease);
+    }
+
+    private boolean isHealthyLike(String disease) {
         if (disease == null) {
-            return false;
+            return true;
         }
-        String normalized = disease.trim().toLowerCase();
-        return !("00".equals(normalized) || "healthy".equals(normalized) || "normal".equals(normalized));
+        String normalized = disease.trim().toLowerCase(Locale.ROOT);
+        return "00".equals(normalized)
+                || "healthy".equals(normalized)
+                || "normal".equals(normalized)
+                || "unknown".equals(normalized);
+    }
+
+    private int toPercent(BigDecimal confidence) {
+        if (confidence == null) {
+            return 0;
+        }
+        BigDecimal multiplied = confidence.multiply(BigDecimal.valueOf(100));
+        return multiplied.setScale(0, java.math.RoundingMode.HALF_UP).intValue();
+    }
+
+    private String normalizeDiseaseKey(String disease, String label) {
+        String key = firstNonBlank(disease, label, "unknown");
+        String normalized = key.toLowerCase(Locale.ROOT);
+        return DISEASE_CODE_ALIASES.getOrDefault(normalized, normalized);
+    }
+
+    private String uploadUploadedImage(byte[] imageBytes, String originalFilename, String contentType) {
+        try {
+            String uploadedUrl = awsS3Service.upload(imageBytes, originalFilename, contentType, "captures");
+            if (uploadedUrl != null && !uploadedUrl.isBlank()) {
+                return uploadedUrl;
+            }
+        } catch (RuntimeException ignored) {
+            // S3 설정이 없는 로컬 환경에서는 기존 로컬 저장 경로로 fallback.
+        }
+        return saveCaptureImage(imageBytes, originalFilename);
+    }
+
+    private List<String> guideList(DiseaseInfo info, DiseaseGuideType guideType) {
+        if (info == null || info.getGuides() == null) {
+            return List.of();
+        }
+        return info.getGuides().stream()
+                .filter(guide -> guide != null && guideType.equals(guide.getGuideType()))
+                .sorted((a, b) -> Integer.compare(
+                        a.getSortOrder() == null ? Integer.MAX_VALUE : a.getSortOrder(),
+                        b.getSortOrder() == null ? Integer.MAX_VALUE : b.getSortOrder()
+                ))
+                .map(DiseaseGuide::getContent)
+                .map(this::safeText)
+                .filter(value -> value != null)
+                .collect(Collectors.toList());
+    }
+
+    private String safeText(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     private BigDecimal top1Probability(List<AiPredictResponse.TopKItem> top3) {

@@ -30,6 +30,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Locale;
 import java.util.Map;
 import com.example.practice.dto.crops.GrowthDiaryCardResponse;
 
@@ -262,7 +263,7 @@ public class GddSummaryService {
             diseaseName = "unknown";
         }
 
-        String status = "healthy".equalsIgnoreCase(diseaseName) ? "NORMAL" : "ABNORMAL";
+        String status = isHealthyLike(diseaseName) ? "NORMAL" : "ABNORMAL";
         return new DiseaseLatestResponse(status, diseaseName, latest.getAiConfidence(), latest.getMeasuredAt());
     }
 
@@ -307,6 +308,17 @@ public class GddSummaryService {
         }
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private boolean isHealthyLike(String diseaseName) {
+        if (diseaseName == null) {
+            return true;
+        }
+        String normalized = diseaseName.trim().toLowerCase(Locale.ROOT);
+        return "healthy".equals(normalized)
+                || "normal".equals(normalized)
+                || "00".equals(normalized)
+                || "unknown".equals(normalized);
     }
 
     private Integer diffInt(Integer current, Integer previous) {
