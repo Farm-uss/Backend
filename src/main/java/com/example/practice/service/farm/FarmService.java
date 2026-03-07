@@ -6,7 +6,6 @@ import com.example.practice.entity.farm.*;
 import com.example.practice.entity.location.Location;
 import com.example.practice.exception.FarmException;
 import com.example.practice.repository.crops.CropsRepository;
-import com.example.practice.repository.farm.FarmInvitationRepository;
 import com.example.practice.repository.farm.FarmMemberRepository;
 import com.example.practice.repository.farm.FarmRepository;
 import com.example.practice.repository.location.LocationRepository;
@@ -35,7 +34,6 @@ public class FarmService {
     private final LocationService locationService; // 주입 필요
     private final LocationRepository locationRepo; // 주입 필요
     private final CropsRepository cropsRepo;  // SecurityContext에서 userId 가져옴 가정
-    private final FarmInvitationRepository invitationRepo;
     private final AwsS3Service awsS3Service;
 
 
@@ -140,6 +138,7 @@ public class FarmService {
                             .farmId(farm.getId())
                             .name(farm.getName())
                             .location(location)
+                            .area(farm.getArea())
                             .ownerName(ownerName)
                             .memberCount(memberCount)
                             .crops(cropNames)
@@ -184,94 +183,42 @@ public class FarmService {
         farmRepo.deleteById(farmId);
 
     }
+
     @Transactional
-    public void inviteMember(Long farmId, Long inviterId, Long invitedUserId) {
+    public void addMemberByEmail(Long farmId, Long inviterId, String email) {
 
-
+        // 1. 초대자가 OWNER인지 체크
         FarmMember inviter = farmMemberRepo
                 .findByFarmIdAndUserId(farmId, inviterId)
-                .orElseThrow(() -> new RuntimeException("농장 멤버가 아닙니다."));
-
+                .orElseThrow(() -> new FarmException("농장 멤버가 아닙니다."));
 
         if (inviter.getRole() != FarmRole.OWNER) {
-            throw new FarmException("OWNER만 초대할 수 있습니다.");  // ← 변경
+            throw new FarmException("OWNER만 멤버를 추가할 수 있습니다.");
         }
-        if (inviterId.equals(invitedUserId)) {
-            throw new FarmException("자기 자신은 초대할 수 없습니다.");
-        }
-        // 이미 멤버인지 확인
+
+        // 2. 이메일로 유저 조회
+        User targetUser = userRepo.findByEmail(email)
+                .orElseThrow(() -> new FarmException("해당 이메일을 가진 유저가 존재하지 않습니다."));
+
+        Long invitedUserId = targetUser.getId();
+
+        // 3. 이미 멤버인지 확인
         if (farmMemberRepo.existsByFarmIdAndUserId(farmId, invitedUserId)) {
             throw new FarmException("이미 해당 농장의 멤버입니다.");
         }
 
-        // 이미 초대가 있는지 확인
-        if (invitationRepo.existsByFarmIdAndInvitedUserId(farmId, invitedUserId)) {
-            throw new FarmException("이미 초대가 발송되었습니다.");
-        }
-
-        FarmInvitation invitation = new FarmInvitation();
-        invitation.setFarmId(farmId);
-        invitation.setInviterId(inviterId);
-        invitation.setInvitedUserId(invitedUserId);
-        invitation.setStatus(InvitationStatus.PENDING);
-        invitation.setCreatedAt(OffsetDateTime.now());
-
-        invitationRepo.save(invitation);
-    }
-
-    @Transactional(readOnly = true)
-    public List<InvitationResponse> getMyInvitations(Long userId) {
-
-        return invitationRepo
-                .findAllByInvitedUserIdAndStatus(userId, InvitationStatus.PENDING)  // ← 기존 메서드 사용
-                .stream()
-                .map(inv -> {
-                    // farm 연관 필드가 없으니, farmId로 직접 조회
-                    Farm farm = farmRepo.findById(inv.getFarmId()).orElse(null);
-
-                    return InvitationResponse.builder()
-                            .invitationId(inv.getId())
-                            .farmId(inv.getFarmId())
-                            .farmName(farm != null ? farm.getName() : "삭제된 농장")
-                            .status(inv.getStatus())
-                            .createdAt(inv.getCreatedAt())
-                            .build();
-                })
-                .toList();
-    }
-
-
-
-    @Transactional
-    public void acceptInvitation(Long invitationId, Long currentUserId) {
-
-        FarmInvitation invitation = invitationRepo.findById(invitationId)
-                .orElseThrow(() -> new RuntimeException("초대가 존재하지 않습니다."));
-
-        // 초대 받은 사람만 가능
-        if (!invitation.getInvitedUserId().equals(currentUserId)) {
-            throw new RuntimeException("본인의 초대만 수락할 수 있습니다.");
-        }
-
-        if (invitation.getStatus() != InvitationStatus.PENDING) {
-            throw new RuntimeException("이미 처리된 초대입니다.");
-        }
-
-        Farm farm = farmRepo.findById(invitation.getFarmId())
-                .orElseThrow(() -> new RuntimeException("농장이 존재하지 않습니다."));
+        // 4. 멤버 추가
+        Farm farm = farmRepo.findById(farmId)
+                .orElseThrow(() -> new FarmException("농장이 존재하지 않습니다."));
 
         FarmMember member = new FarmMember();
         member.setFarm(farm);
-        member.setUserId(currentUserId);
+        member.setUserId(invitedUserId);
         member.setRole(FarmRole.MEMBER);
         member.setJoinedAt(OffsetDateTime.now());
 
         farmMemberRepo.save(member);
-
-        invitation.setStatus(InvitationStatus.ACCEPTED);
     }
-
-
 
 
 }

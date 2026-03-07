@@ -1,6 +1,5 @@
 package com.example.practice.controller.farm;
 
-import com.example.practice.common.config.TokenAuthFilter;
 import com.example.practice.dto.farm.*;
 import com.example.practice.entity.farm.Farm;
 import com.example.practice.entity.farm.FarmRole;
@@ -10,12 +9,9 @@ import com.example.practice.common.config.TokenAuthFilter.UserPrincipal;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -78,42 +74,15 @@ public class FarmController {
         return ResponseEntity.ok("농장이 성공적으로 삭제되었습니다.");
     }
 
-
-    // 초대 보내기
-    @Operation(summary = "초대 보내기", description = "농장 초대입니다")
-    @PostMapping("/{farmId}/invite")
-    public ResponseEntity<?> invite(
+    @PostMapping("/{farmId}/members")
+    public ResponseEntity<Void> addMemberByEmail(
             @PathVariable Long farmId,
             @RequestBody InviteRequest request,
-            @AuthenticationPrincipal UserPrincipal user  // ← CustomUserDetails → UserPrincipal
-    ) {
-        farmService.inviteMember(farmId, user.id(), request.getInvitedUserId());
-        return ResponseEntity.ok("초대 완료");
-    }
-
-    // 초대 수락
-
-    @Operation(summary = "초대 수락", description = "농장 초대 수락입니다")
-    @PostMapping("/invitations/{invitationId}/accept")
-    public ResponseEntity<?> accept(
-            @PathVariable Long invitationId,
             @AuthenticationPrincipal UserPrincipal user
     ) {
-        farmService.acceptInvitation(invitationId, user.id());
-        return ResponseEntity.ok("초대 수락 완료");
+        farmService.addMemberByEmail(farmId, user.id(), request.getEmail());
+        return ResponseEntity.ok().build();
     }
-    // 내 초대 목록
-    @Operation(summary = "초대 조회", description = "내 농장 초대 목록입니다")
-    @GetMapping("/invitations")
-    public ResponseEntity<?> myInvitations(
-
-            @AuthenticationPrincipal UserPrincipal user
-    ) {
-        return ResponseEntity.ok(
-                farmService.getMyInvitations(user.id())
-        );
-    }
-
 
 
     @ExceptionHandler(FarmException.class)
