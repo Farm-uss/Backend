@@ -63,7 +63,7 @@ out/
 src/main/resources/application.properties
 src/main/resources/application-local.properties
 .env
-.env.*
+.env.local
 *.env
 *.env.*
 !.env.example

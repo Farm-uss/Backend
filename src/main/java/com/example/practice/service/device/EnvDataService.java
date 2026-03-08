@@ -48,7 +48,7 @@ public class EnvDataService {
 
         // 1. 묶음 저장
         EnvData envData = EnvData.create(
-                request.getTemp(), request.getHumidity(),
+                request.getTemp(), request.getHumidity(), request.getPh(),
                 request.getSoilMoisture(), request.getIlluminance(),
                 request.getEc(), request.getCo2(), device
         );

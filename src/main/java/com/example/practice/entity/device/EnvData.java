@@ -1,4 +1,5 @@
 package com.example.practice.entity.device;
+
 import com.example.practice.common.entity.BaseTimeEntity;
 import jakarta.persistence.*;
 import lombok.*;
@@ -31,6 +32,9 @@ public class EnvData extends BaseTimeEntity {
     @Column(name = "humidity", precision = 6, scale = 2)
     private BigDecimal humidity;
 
+    @Column(name = "ph", precision = 4, scale = 2)
+    private BigDecimal ph;
+
     @Column(name = "soil_moisture", precision = 6, scale = 2)
     private BigDecimal soilMoisture;
 
@@ -50,17 +54,14 @@ public class EnvData extends BaseTimeEntity {
     @JoinColumn(name = "device_id", nullable = false)
     private Device device;
 
-
-
-    // ─── 정적 팩토리 메서드 ───────────────────────────────────────────
-
     public static EnvData create(
-            BigDecimal temp,           // 1
-            BigDecimal humidity,       // 2
-            BigDecimal soilMoisture,   // 3
-            BigDecimal illuminance,    // 4
-            BigDecimal ec,             // 5
-            BigDecimal co2,            // 6
+            BigDecimal temp,
+            BigDecimal humidity,
+            BigDecimal ph,
+            BigDecimal soilMoisture,
+            BigDecimal illuminance,
+            BigDecimal ec,
+            BigDecimal co2,
             Device device
     ) {
         if (device == null) {
@@ -70,6 +71,7 @@ public class EnvData extends BaseTimeEntity {
         return EnvData.builder()
                 .temp(temp)
                 .humidity(humidity)
+                .ph(ph)
                 .soilMoisture(soilMoisture)
                 .illuminance(illuminance)
                 .ec(ec)

@@ -4,9 +4,11 @@ import com.example.practice.entity.device.EnvData;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import java.util.Optional;
 
 public interface EnvDataRepository extends JpaRepository<EnvData, Long> {
 
     Page<EnvData> findAllByDevice_DeviceIdOrderByCreatedAtDesc(Long deviceId, Pageable pageable);
+    Optional<EnvData> findTopByDevice_FarmIdOrderByMeasuredAtDesc(Long farmId);
 }
 

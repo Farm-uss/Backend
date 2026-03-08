@@ -42,4 +42,13 @@ public interface CropsRepository extends JpaRepository<Crops, Long> {
     """)
     Optional<Crops> findByFarmIdAndCropsIdWithGrowthStandard(@Param("farmId") Long farmId,
                                                               @Param("cropsId") Long cropsId);
+    @Query("""
+        select c
+        from Crops c
+        join fetch c.farm f
+        left join fetch c.growthStandard gs
+        where f.id = :farmId
+        order by c.plantingDate desc
+    """)
+    List<Crops> findCurrentCropCandidatesByFarmId(@Param("farmId") Long farmId);
 }
