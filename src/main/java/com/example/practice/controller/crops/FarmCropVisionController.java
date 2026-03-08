@@ -4,6 +4,8 @@ import com.example.practice.common.config.TokenAuthFilter;
 import com.example.practice.dto.crops.VisionInferenceCheckResponse;
 import com.example.practice.service.crops.VisionInferenceService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -42,7 +44,15 @@ public class FarmCropVisionController {
             @PathVariable Long cropsId,
             @RequestParam("image") MultipartFile image,
             @RequestParam(required = false) Long cameraId,
+            @Parameter(
+                    description = "추론 태스크 타입",
+                    schema = @Schema(
+                            allowableValues = {"DISEASE_CLASSIFICATION", "GROWTH_MEASUREMENT"},
+                            defaultValue = "DISEASE_CLASSIFICATION"
+                    )
+            )
             @RequestParam(required = false, defaultValue = "DISEASE_CLASSIFICATION") String taskType,
+            @Parameter(description = "작물 코드(숫자). GROWTH_MEASUREMENT일 때 필수")
             @RequestParam(required = false) Integer cropCode,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime measuredAt,
             @AuthenticationPrincipal TokenAuthFilter.UserPrincipal user
