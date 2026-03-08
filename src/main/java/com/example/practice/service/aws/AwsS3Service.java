@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.UUID;
 
@@ -26,25 +27,27 @@ public class AwsS3Service {
         }
 
         try {
-            String originalFilename = file.getOriginalFilename();
-            if (originalFilename == null || originalFilename.isBlank()) {
-                originalFilename = "file";
-            }
-            String fileName = UUID.randomUUID() + "_" + originalFilename;
-            String key = dirName + "/" + fileName;  // farm/uuid_filename.png
-
-            ObjectMetadata metadata = new ObjectMetadata();
-            metadata.setContentLength(file.getSize());
-            metadata.setContentType(file.getContentType());
-
-            amazonS3.putObject(new PutObjectRequest(bucket, key, file.getInputStream(), metadata));
-
-            // 퍼블릭 URL 리턴
-            return amazonS3.getUrl(bucket, key).toString();
+            return upload(file.getBytes(), file.getOriginalFilename(), file.getContentType(), dirName);
 
         } catch (IOException e) {
             throw new RuntimeException("S3 업로드 실패", e);
         }
     }
-}
 
+    public String upload(byte[] bytes, String originalFilename, String contentType, String dirName) {
+        if (bytes == null || bytes.length == 0) {
+            return null;
+        }
+
+        String safeOriginalName = (originalFilename == null || originalFilename.isBlank()) ? "file" : originalFilename;
+        String fileName = UUID.randomUUID() + "_" + safeOriginalName;
+        String key = dirName + "/" + fileName;
+
+        ObjectMetadata metadata = new ObjectMetadata();
+        metadata.setContentLength(bytes.length);
+        metadata.setContentType(contentType);
+
+        amazonS3.putObject(new PutObjectRequest(bucket, key, new ByteArrayInputStream(bytes), metadata));
+        return amazonS3.getUrl(bucket, key).toString();
+    }
+}

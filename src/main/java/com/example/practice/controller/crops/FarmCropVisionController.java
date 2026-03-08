@@ -1,7 +1,7 @@
 package com.example.practice.controller.crops;
 
 import com.example.practice.common.config.TokenAuthFilter;
-import com.example.practice.dto.crops.VisionInferenceResponse;
+import com.example.practice.dto.crops.VisionInferenceCheckResponse;
 import com.example.practice.service.crops.VisionInferenceService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -37,7 +37,7 @@ public class FarmCropVisionController {
             @ApiResponse(responseCode = "504", description = "AI 서버 타임아웃")
     })
     @PostMapping("/{farmId}/crops/{cropsId}/vision-inference")
-    public VisionInferenceResponse infer(
+    public VisionInferenceCheckResponse infer(
             @PathVariable Long farmId,
             @PathVariable Long cropsId,
             @RequestParam("image") MultipartFile image,
