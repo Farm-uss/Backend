@@ -43,6 +43,7 @@ public class FarmCropVisionController {
             @RequestParam("image") MultipartFile image,
             @RequestParam(required = false) Long cameraId,
             @RequestParam(required = false, defaultValue = "DISEASE_CLASSIFICATION") String taskType,
+            @RequestParam(required = false) Integer cropCode,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime measuredAt,
             @AuthenticationPrincipal TokenAuthFilter.UserPrincipal user
     ) {
@@ -53,6 +54,7 @@ public class FarmCropVisionController {
                 image,
                 cameraId,
                 taskType,
+                cropCode,
                 measuredAt
         );
     }
