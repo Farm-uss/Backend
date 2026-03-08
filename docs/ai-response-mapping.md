@@ -27,6 +27,13 @@
 }
 ```
 
+### BE -> AI 요청 폼 필드
+
+- `image` (required)
+- `task_type` (required): `DISEASE_CLASSIFICATION` 또는 `GROWTH_MEASUREMENT`
+- `capture_id` (optional)
+- `crop_code` (optional): 성장 측정 태스크(`GROWTH_MEASUREMENT`)에서 필수
+
 ## 2) 외부 모델 별칭 키 허용 규칙
 
 `VisionInferenceService` 정규화 로직에서 다음 별칭 키를 허용합니다.

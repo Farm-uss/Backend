@@ -52,6 +52,8 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class VisionInferenceService {
+    private static final String TASK_DISEASE_CLASSIFICATION = "DISEASE_CLASSIFICATION";
+    private static final String TASK_GROWTH_MEASUREMENT = "GROWTH_MEASUREMENT";
 
     private final FarmMemberRepository farmMemberRepository;
     private final CropsRepository cropsRepository;
@@ -89,6 +91,7 @@ public class VisionInferenceService {
             MultipartFile image,
             Long cameraId,
             String taskType,
+            Integer cropCode,
             OffsetDateTime measuredAt
     ) {
         if (!farmMemberRepository.existsByFarmIdAndUserId(farmId, userId)) {
@@ -113,8 +116,16 @@ public class VisionInferenceService {
         uploadedImage.setImagePath(uploadUploadedImage(imageBytes, originalFilename, contentType));
         uploadedImage = imageCaptureRepository.save(uploadedImage);
 
-        String requestedTaskType = (taskType == null || taskType.isBlank()) ? "DISEASE_CLASSIFICATION" : taskType;
-        AiPredictResponse aiResponse = callAiServer(imageBytes, originalFilename, contentType, uploadedImage.getCaptureId(), requestedTaskType);
+        String requestedTaskType = normalizeTaskType(taskType);
+        validateTaskInputs(requestedTaskType, cropCode);
+        AiPredictResponse aiResponse = callAiServer(
+                imageBytes,
+                originalFilename,
+                contentType,
+                uploadedImage.getCaptureId(),
+                requestedTaskType,
+                cropCode
+        );
 
         VisionInference inference = new VisionInference();
         inference.setCapture(uploadedImage);
@@ -209,7 +220,8 @@ public class VisionInferenceService {
             String originalFilename,
             String contentType,
             Long captureId,
-            String taskType
+            String taskType,
+            Integer cropCode
     ) {
         try {
             ByteArrayResource fileResource = new ByteArrayResource(imageBytes) {
@@ -224,6 +236,9 @@ public class VisionInferenceService {
                     .contentType(resolveContentType(contentType));
             bodyBuilder.part("task_type", taskType);
             bodyBuilder.part("capture_id", captureId);
+            if (cropCode != null) {
+                bodyBuilder.part("crop_code", cropCode);
+            }
 
             JsonNode rawResponse = webClientBuilder.baseUrl(aiBaseUrl).build()
                     .post()
@@ -504,6 +519,19 @@ public class VisionInferenceService {
             }
         }
         return null;
+    }
+
+    private String normalizeTaskType(String taskType) {
+        if (taskType == null || taskType.isBlank()) {
+            return TASK_DISEASE_CLASSIFICATION;
+        }
+        return taskType.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private void validateTaskInputs(String taskType, Integer cropCode) {
+        if (TASK_GROWTH_MEASUREMENT.equals(taskType) && cropCode == null) {
+            throw new AppException(HttpStatus.BAD_REQUEST, "cropCode is required for GROWTH_MEASUREMENT");
+        }
     }
 
     private String saveCaptureImage(byte[] imageBytes, String originalFilename) {
