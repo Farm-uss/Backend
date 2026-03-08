@@ -31,7 +31,6 @@ server:
       force: true
       enabled: true
   address: 0.0.0.0
-  port: 8080
 
 file:
   upload-dir: ${FILE_UPLOAD_DIR:/home/farmus_images/}
