@@ -115,6 +115,7 @@ jobs:
                 network_mode: "host"
                 volumes:
                   - /home/${USERNAME}/kimphys_api_a/app.py:/workspace/app.py:ro
+                  - /home/${USERNAME}/kimphys_api_a/models:/workspace/models:ro
                 command: >
                   bash -lc "pip install -q ujson fastapi uvicorn python-multipart &&
                   uvicorn app:app --host 0.0.0.0 --port 8001 --app-dir /workspace"
