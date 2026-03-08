@@ -59,8 +59,10 @@ public class SecurityConfig {
 
                         .requestMatchers("/api/devices/**").permitAll()
                         .requestMatchers("/api/env-data/**").permitAll()
+                        .requestMatchers("/api/sensor-readings/**").permitAll()
+                        .requestMatchers("/api/sensors/**").permitAll()
 
-                        // 나머지는 JWT 인증
+                // 나머지는 JWT 인증
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(
