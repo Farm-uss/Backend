@@ -50,7 +50,7 @@ springdoc:
     path: /swagger-ui.html
   api-docs:
     path: /v3/api-docs
-  paths-to-match: /auth/**,/users/**,/farms/**,/api/v1/crops/**,/api/v1/farms/**
+  paths-to-match: /auth/**,/users/**,/farms/**,/api/v1/crops/**,/api/v1/farms/**,/api/sensor-readings/**,/api/sensors/**
 
 swagger:
   server-url: ${SWAGGER_SERVER_URL:http://localhost:8080}

@@ -50,19 +50,22 @@
 
 ## 3) Farm-Us API 응답 계약 (BE -> Client)
 
-`/api/v1/farms/{farmId}/crops/{cropsId}/vision/infer`는 `VisionInferenceResponse`를 반환합니다.
+`/api/v1/farms/{farmId}/crops/{cropsId}/vision-inference`는 `VisionInferenceCheckResponse`를 반환합니다.
 
 ```json
 {
-  "captureId": 1,
-  "inferenceId": 1,
-  "disease": "a7",
-  "confidence": 0.91,
-  "abnormal": true,
-  "abnormalReason": "low_confidence",
-  "modelName": "kimphys-62-a",
-  "modelVersion": "v2.0",
-  "inferredAt": "2026-03-01T10:00:00Z"
+  "success": true,
+  "code": "200",
+  "data": {
+    "diseaseStatus": 1,
+    "diseaseId": "a7",
+    "diseaseName": "잎마름병",
+    "diseaseDescription": "잎 가장자리부터 갈변하며 진행되면 잎 전체가 마를 수 있습니다.",
+    "confidence": 91,
+    "causes": ["..."],
+    "symptoms": ["..."],
+    "solutions": ["..."]
+  }
 }
 ```
 
