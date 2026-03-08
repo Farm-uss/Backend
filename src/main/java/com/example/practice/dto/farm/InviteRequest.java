@@ -6,5 +6,5 @@ import lombok.Data;
 @Data
 public class InviteRequest {
     @NotNull
-    private Long invitedUserId;
+    private String email;
 }

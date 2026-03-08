@@ -6,7 +6,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.List;
 
@@ -19,9 +18,12 @@ public class FarmSummary {
     private String name;
     private String location;    // 주소
 
+    private Double area;
+
     private String ownerName;   // 농장 주인 이름
     private int memberCount;     // OWNER 제외 멤버 수
     private List<FarmMemberInfo> members; // 멤버들
+
 
     private String img;
     private List<String> crops; // 작물 이름 리스트
