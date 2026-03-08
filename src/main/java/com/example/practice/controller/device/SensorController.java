@@ -29,7 +29,7 @@ public class SensorController {
     @Operation(summary = "라즈베리파이 최초 등록")
     @PostMapping("/{deviceId}")
     @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<DeviceResponse> register(@Valid @RequestBody DeviceRegisterRequest request) {
+    public ApiResponse<DeviceResponse> register(@Valid @RequestBody DeviceRegisterRequest request, @PathVariable String deviceId) {
         return ApiResponse.success(deviceService.register(request));
     }
 
