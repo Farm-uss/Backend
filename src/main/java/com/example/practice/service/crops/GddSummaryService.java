@@ -44,6 +44,7 @@ public class GddSummaryService {
     private final CropGddDailyRepository cropGddDailyRepository;
     private final GrowthMeasurementRepository growthMeasurementRepository;
     private final FarmMemberRepository farmMemberRepository;
+    private final SensorGddIngestionService sensorGddIngestionService;
 
     @Transactional(readOnly = true)
     public GddSummaryResponse getSummary(Long farmId, Long cropsId, Long userId) {
@@ -60,9 +61,16 @@ public class GddSummaryService {
 
         LocalDate today = LocalDate.now();
         LocalDate plantingDate = crop.getPlantingDate();
+        sensorGddIngestionService.ensureDateRangeSaved(crop, plantingDate, today);
 
         BigDecimal currentGdd = cropGddDailyRepository.sumGddByCropsIdAndDateRange(cropsId, plantingDate, today);
         LocalDate expectedHarvestDate = calculateExpectedHarvestDate(cropsId, plantingDate, today, currentGdd, targetGdd);
+        boolean hasNoSensorDay = cropGddDailyRepository.existsByCropsIdAndDateRangeAndSource(
+                cropsId,
+                plantingDate,
+                today,
+                SensorGddIngestionService.SOURCE_NO_SENSOR_DATA
+        );
 
         Integer currentDays = toInclusiveDays(plantingDate, today);
         Integer targetDays = expectedHarvestDate == null ? null : toInclusiveDays(plantingDate, expectedHarvestDate);
@@ -74,7 +82,9 @@ public class GddSummaryService {
                 currentDays,
                 expectedHarvestDate,
                 targetGdd,
-                currentGdd
+                currentGdd,
+                hasNoSensorDay ? "NO_SENSOR_DATA" : "OK",
+                hasNoSensorDay ? "해당 기간에 센서 데이터가 없는 날짜가 있어 일부 값은 0으로 계산되었습니다." : null
         );
     }
 
@@ -86,11 +96,11 @@ public class GddSummaryService {
             LocalDate from,
             LocalDate to
     ) {
-        getAccessibleCrop(farmId, cropsId, userId);
-
         if (from.isAfter(to)) {
             throw new AppException(HttpStatus.BAD_REQUEST, "from must be less than or equal to to");
         }
+        Crops crop = getAccessibleCrop(farmId, cropsId, userId);
+        sensorGddIngestionService.ensureDateRangeSaved(crop, from, to);
 
         List<CropGddDaily> rows = cropGddDailyRepository
                 .findAllByCrops_CropsIdAndTargetDateBetweenOrderByTargetDateAsc(cropsId, from, to);

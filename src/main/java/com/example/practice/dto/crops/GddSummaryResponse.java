@@ -10,6 +10,8 @@ public record GddSummaryResponse(
         Integer currentDays,
         LocalDate expectedHarvestDate,
         BigDecimal targetGdd,
-        BigDecimal currentGdd
+        BigDecimal currentGdd,
+        String gddStatus,
+        String message
 ) {
 }

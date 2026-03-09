@@ -1,6 +1,7 @@
 package com.example.practice.repository.device;
 
 import com.example.practice.entity.device.SensorReading;
+import com.example.practice.entity.device.SensorType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -8,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.OffsetDateTime;
+import java.math.BigDecimal;
 import java.util.List;
 
 public interface SensorReadingRepository extends JpaRepository<SensorReading, Long> {
@@ -32,4 +34,20 @@ public interface SensorReadingRepository extends JpaRepository<SensorReading, Lo
             @Param("deviceId") Long deviceId,
             @Param("from") OffsetDateTime from,
             @Param("to") OffsetDateTime to);
+
+    @Query("""
+            SELECT min(sr.value), max(sr.value)
+            FROM SensorReading sr
+            JOIN sr.sensor s
+            JOIN s.device d
+            WHERE d.farmId = :farmId
+              AND s.sensorType = :sensorType
+              AND sr.measuredAt BETWEEN :from AND :to
+            """)
+    List<BigDecimal[]> findDailyMinMaxByFarmIdAndSensorType(
+            @Param("farmId") Long farmId,
+            @Param("sensorType") SensorType sensorType,
+            @Param("from") OffsetDateTime from,
+            @Param("to") OffsetDateTime to
+    );
 }
