@@ -8,7 +8,12 @@ import java.math.BigDecimal;
 
 @Getter @Setter
 @Entity
-@Table(name = "crop_growth_standard")
+@Table(
+        name = "crop_growth_standard",
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uq_crop_growth_standard_crop_code", columnNames = "crop_code")
+        }
+)
 public class CropGrowthStandard {
 
     @Id
