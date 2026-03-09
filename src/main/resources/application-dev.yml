@@ -30,7 +30,7 @@ server:
       charset: UTF-8
       force: true
       enabled: true
-  address: 0.0.0.0
+  address: ${SERVER_ADDRESS:0.0.0.0}
 
 file:
   upload-dir: ${FILE_UPLOAD_DIR:/home/farmus_images/}
@@ -51,7 +51,7 @@ springdoc:
     path: /swagger-ui.html
   api-docs:
     path: /v3/api-docs
-  paths-to-match: /auth/**,/users/**,/farms/**,/api/v1/crops/**,/api/v1/farms/**,/api/sensor-readings/**,/api/sensors/**,/api/devices/**
+  paths-to-match: /auth/**,/users/**,/farms/**,/api/v1/crops/**,/api/v1/farms/**,/api/sensor-readings/**,/api/sensors/**,/api/env-data/**,/api/sensor-readings/**,/api/sensors/**,/api/devices/**
 
 swagger:
   server-url: ${SWAGGER_SERVER_URL:http://localhost:8080}

@@ -23,6 +23,7 @@ services:
       - AI_INFERENCE_BASE_URL=${AI_INFERENCE_BASE_URL}
       - AI_INFERENCE_PREDICT_PATH=${AI_INFERENCE_PREDICT_PATH}
       - SPRING_APPLICATION_JSON={"file":{"upload-dir":"${FILE_UPLOAD_DIR}"}}
+      - SERVER_ADDRESS=${SERVER_ADDRESS}
     restart: always
 
   ai-inference-a:
