@@ -48,7 +48,7 @@ public class GddSummaryService {
     private final FarmMemberRepository farmMemberRepository;
     private final SensorGddIngestionService sensorGddIngestionService;
 
-    @Transactional(readOnly = true)
+    @Transactional
     public GddSummaryResponse getSummary(Long farmId, Long cropsId, Long userId) {
         Crops crop = getAccessibleCrop(farmId, cropsId, userId);
 
@@ -90,7 +90,7 @@ public class GddSummaryService {
         );
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public List<GddTimeSeriesResponse> getTimeSeries(
             Long farmId,
             Long cropsId,

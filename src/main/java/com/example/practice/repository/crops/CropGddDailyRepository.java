@@ -60,13 +60,14 @@ public interface CropGddDailyRepository extends JpaRepository<CropGddDaily, Long
     @Transactional
         @Query(value = """
         INSERT INTO crop_gdd_daily
-        (crops_id, target_date, gdd, gdd_normal_5y, base_temp,
+        (crop_id, crops_id, target_date, gdd, gdd_normal_5y, base_temp,
          station_type, station_code, source, fetched_at, created_at, updated_at)
         VALUES
-        (:cropId, :targetDate, :gdd, :gddNormal5y, :baseTemp,
+        (:cropId, :cropId, :targetDate, :gdd, :gddNormal5y, :baseTemp,
          :stationType, :stationCode, :source, :fetchedAt, now(), now())
         ON CONFLICT (crops_id, target_date)
         DO UPDATE SET
+            crop_id = EXCLUDED.crop_id,
             gdd = EXCLUDED.gdd,
             gdd_normal_5y = EXCLUDED.gdd_normal_5y,
             base_temp = EXCLUDED.base_temp,
