@@ -2,9 +2,11 @@ package com.example.practice.service.farm;
 
 import com.example.practice.dto.farm.*;
 import com.example.practice.entity.crops.Crops;
+import com.example.practice.entity.crops.CropGrowthStandard;
 import com.example.practice.entity.farm.*;
 import com.example.practice.entity.location.Location;
 import com.example.practice.exception.FarmException;
+import com.example.practice.repository.crops.CropGrowthStandardRepository;
 import com.example.practice.repository.crops.CropsRepository;
 import com.example.practice.repository.farm.FarmMemberRepository;
 import com.example.practice.repository.farm.FarmRepository;
@@ -34,6 +36,7 @@ public class FarmService {
     private final LocationService locationService; // 주입 필요
     private final LocationRepository locationRepo; // 주입 필요
     private final CropsRepository cropsRepo;  // SecurityContext에서 userId 가져옴 가정
+    private final CropGrowthStandardRepository cropGrowthStandardRepository;
     private final AwsS3Service awsS3Service;
 
 
@@ -72,9 +75,17 @@ public class FarmService {
 
 
         // 3. 작물 저장
+        CropGrowthStandard growthStandard = cropGrowthStandardRepository.findByCropName(req.getCropName())
+                .orElseThrow(() -> new FarmException("작물 표준값이 없습니다. 관리자에게 문의하세요."));
+
         Crops crop = new Crops();
         crop.setName(req.getCropName());
         crop.setFarm(savedFarm);
+        crop.setGrowthStandard(growthStandard);
+        crop.setCropCode(growthStandard.getCropCode());
+        crop.setBaseTemp(growthStandard.getBaseTemp());
+        crop.setTargetGdd(growthStandard.getTargetGdd());
+        crop.setPlantingDate(savedFarm.getCreatedAt().toLocalDate());
         cropsRepo.save(crop);
 
         // 4. 멤버 등록 (소유자)

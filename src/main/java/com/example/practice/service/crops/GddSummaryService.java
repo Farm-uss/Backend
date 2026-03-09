@@ -3,6 +3,7 @@ package com.example.practice.service.crops;
 import com.example.practice.common.error.AppException;
 import com.example.practice.dto.crops.GddSummaryResponse;
 import com.example.practice.dto.crops.GddTimeSeriesResponse;
+import com.example.practice.dto.crops.GddWindowSeriesResponse;
 import com.example.practice.dto.crops.GrowthDiaryDetailResponse;
 import com.example.practice.dto.crops.DiseaseLatestResponse;
 import com.example.practice.dto.crops.GrowthMetricResponse;
@@ -32,6 +33,7 @@ import java.util.List;
 import java.util.ArrayList;
 import java.util.Locale;
 import java.util.Map;
+import java.util.HashMap;
 import com.example.practice.dto.crops.GrowthDiaryCardResponse;
 
 @Service
@@ -44,8 +46,9 @@ public class GddSummaryService {
     private final CropGddDailyRepository cropGddDailyRepository;
     private final GrowthMeasurementRepository growthMeasurementRepository;
     private final FarmMemberRepository farmMemberRepository;
+    private final SensorGddIngestionService sensorGddIngestionService;
 
-    @Transactional(readOnly = true)
+    @Transactional
     public GddSummaryResponse getSummary(Long farmId, Long cropsId, Long userId) {
         Crops crop = getAccessibleCrop(farmId, cropsId, userId);
 
@@ -60,9 +63,16 @@ public class GddSummaryService {
 
         LocalDate today = LocalDate.now();
         LocalDate plantingDate = crop.getPlantingDate();
+        sensorGddIngestionService.ensureDateRangeSaved(crop, plantingDate, today);
 
         BigDecimal currentGdd = cropGddDailyRepository.sumGddByCropsIdAndDateRange(cropsId, plantingDate, today);
         LocalDate expectedHarvestDate = calculateExpectedHarvestDate(cropsId, plantingDate, today, currentGdd, targetGdd);
+        boolean hasNoSensorDay = cropGddDailyRepository.existsByCropsIdAndDateRangeAndSource(
+                cropsId,
+                plantingDate,
+                today,
+                SensorGddIngestionService.SOURCE_NO_SENSOR_DATA
+        );
 
         Integer currentDays = toInclusiveDays(plantingDate, today);
         Integer targetDays = expectedHarvestDate == null ? null : toInclusiveDays(plantingDate, expectedHarvestDate);
@@ -74,11 +84,13 @@ public class GddSummaryService {
                 currentDays,
                 expectedHarvestDate,
                 targetGdd,
-                currentGdd
+                currentGdd,
+                hasNoSensorDay ? "NO_SENSOR_DATA" : "OK",
+                hasNoSensorDay ? "해당 기간에 센서 데이터가 없는 날짜가 있어 일부 값은 0으로 계산되었습니다." : null
         );
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public List<GddTimeSeriesResponse> getTimeSeries(
             Long farmId,
             Long cropsId,
@@ -86,11 +98,11 @@ public class GddSummaryService {
             LocalDate from,
             LocalDate to
     ) {
-        getAccessibleCrop(farmId, cropsId, userId);
-
         if (from.isAfter(to)) {
             throw new AppException(HttpStatus.BAD_REQUEST, "from must be less than or equal to to");
         }
+        Crops crop = getAccessibleCrop(farmId, cropsId, userId);
+        sensorGddIngestionService.ensureDateRangeSaved(crop, from, to);
 
         List<CropGddDaily> rows = cropGddDailyRepository
                 .findAllByCrops_CropsIdAndTargetDateBetweenOrderByTargetDateAsc(cropsId, from, to);
@@ -104,6 +116,64 @@ public class GddSummaryService {
         }
 
         return response;
+    }
+
+    @Transactional(readOnly = true)
+    public List<GddWindowSeriesResponse> getWindowedTimeSeries(
+            Long farmId,
+            Long cropsId,
+            Long userId,
+            int windowDays
+    ) {
+        if (windowDays != 3 && windowDays != 7 && windowDays != 31) {
+            throw new AppException(HttpStatus.BAD_REQUEST, "windowDays must be one of 3, 7, 31");
+        }
+
+        Crops crop = getAccessibleCrop(farmId, cropsId, userId);
+        if (crop.getPlantingDate() == null) {
+            throw new AppException(HttpStatus.BAD_REQUEST, "plantingDate is required");
+        }
+        LocalDate from = crop.getPlantingDate();
+        LocalDate to = LocalDate.now();
+        sensorGddIngestionService.ensureDateRangeSaved(crop, from, to);
+
+        List<CropGddDaily> rows = cropGddDailyRepository
+                .findAllByCrops_CropsIdAndTargetDateBetweenOrderByTargetDateAsc(cropsId, from, to);
+
+        Map<LocalDate, BigDecimal> dailyByDate = new HashMap<>();
+        for (CropGddDaily row : rows) {
+            dailyByDate.put(row.getTargetDate(), row.getGdd() == null ? BigDecimal.ZERO : row.getGdd());
+        }
+
+        List<GddWindowSeriesResponse> result = new ArrayList<>();
+        BigDecimal cumulative = BigDecimal.ZERO;
+
+        LocalDate cursor = from;
+        while (!cursor.isAfter(to)) {
+            LocalDate bucketStart = cursor;
+            LocalDate bucketEnd = cursor.plusDays(windowDays - 1L);
+            if (bucketEnd.isAfter(to)) {
+                bucketEnd = to;
+            }
+
+            BigDecimal bucketSum = BigDecimal.ZERO;
+            for (LocalDate d = bucketStart; !d.isAfter(bucketEnd); d = d.plusDays(1)) {
+                bucketSum = bucketSum.add(dailyByDate.getOrDefault(d, BigDecimal.ZERO));
+            }
+            cumulative = cumulative.add(bucketSum);
+
+            result.add(new GddWindowSeriesResponse(
+                    bucketStart,
+                    bucketEnd,
+                    windowDays,
+                    bucketSum,
+                    cumulative
+            ));
+
+            cursor = bucketEnd.plusDays(1);
+        }
+
+        return result;
     }
 
     @Transactional(readOnly = true)
