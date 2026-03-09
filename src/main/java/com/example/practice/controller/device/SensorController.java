@@ -1,11 +1,8 @@
 package com.example.practice.controller.device;
 
 import com.example.practice.common.response.ApiResponse;
-import com.example.practice.dto.Device.DeviceRegisterRequest;
-import com.example.practice.dto.Device.DeviceResponse;
 import com.example.practice.dto.Device.SensorRegisterRequest;
 import com.example.practice.dto.Device.SensorResponse;
-import com.example.practice.service.device.DeviceService;
 import com.example.practice.service.device.SensorService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -23,15 +20,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class SensorController {
 
-    private final DeviceService deviceService;
     private final SensorService sensorService;
-
-    @Operation(summary = "라즈베리파이 최초 등록")
-    @PostMapping("/{deviceId}")
-    @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<DeviceResponse> register(@Valid @RequestBody DeviceRegisterRequest request, @PathVariable String deviceId) {
-        return ApiResponse.success(deviceService.register(request));
-    }
 
     /** 센서 등록 */
     @Operation(summary = "센서 등록")

@@ -32,6 +32,7 @@ public interface FarmMemberRepository extends JpaRepository<FarmMember, Long> {
 
 
 
+
     // 주의: fm.user FETCH는 FarmMember에 @ManyToOne User user 필드 필요!
     // 없으면 제거하거나 userRepo 별도 호출
 }
