@@ -2,6 +2,7 @@ package com.example.practice.controller.crops;
 
 import com.example.practice.common.config.TokenAuthFilter;
 import com.example.practice.dto.crops.GddSummaryResponse;
+import com.example.practice.dto.crops.GddSummaryCheckResponse;
 import com.example.practice.dto.crops.GddTimeSeriesResponse;
 import com.example.practice.dto.crops.GrowthDiaryCardResponse;
 import com.example.practice.dto.crops.GrowthDiaryDetailResponse;
@@ -35,12 +36,12 @@ public class FarmCropGddController {
 
     @Operation(summary = "GDD 요약", description = "목표 성장일/현재 성장일/예상 수확일 요약을 반환합니다.")
     @GetMapping("/{farmId}/crops/{cropsId}/gdd/summary")
-    public GddSummaryResponse getSummary(
+    public GddSummaryCheckResponse getSummary(
             @PathVariable Long farmId,
             @PathVariable Long cropsId,
             @AuthenticationPrincipal TokenAuthFilter.UserPrincipal user
     ) {
-        return gddSummaryService.getSummary(farmId, cropsId, user.id());
+        return GddSummaryCheckResponse.ok(gddSummaryService.getSummary(farmId, cropsId, user.id()));
     }
 
     @Operation(summary = "GDD 시계열", description = "기간(from~to)의 일별 GDD 및 누적 GDD를 반환합니다.")
