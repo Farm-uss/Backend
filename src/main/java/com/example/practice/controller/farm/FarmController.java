@@ -84,6 +84,19 @@ public class FarmController {
         return ResponseEntity.ok().build();
     }
 
+    // FarmController.java에 추가
+    @Operation(summary = "농장 멤버 내보내기", description = "OWNER만 멤버 내보낼 수 있음")
+    @DeleteMapping("/{farmId}/members/{memberUserId}")
+    public ResponseEntity<String> removeMember(
+            @PathVariable Long farmId,
+            @PathVariable Long memberUserId,
+            @AuthenticationPrincipal UserPrincipal user
+    ) {
+        farmService.removeMember(farmId, memberUserId, user.id());
+        return ResponseEntity.ok("멤버가 성공적으로 내보내졌습니다.");
+    }
+
+
 
     @ExceptionHandler(FarmException.class)
     public ResponseEntity<String> handleFarmException(FarmException e) {

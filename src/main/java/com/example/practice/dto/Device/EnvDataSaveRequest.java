@@ -17,6 +17,7 @@ public class EnvDataSaveRequest {
     private BigDecimal temp;
     private BigDecimal humidity;
     private BigDecimal soilMoisture;
+    private BigDecimal ph;
     private BigDecimal illuminance;
     private BigDecimal ec;
     private BigDecimal co2;

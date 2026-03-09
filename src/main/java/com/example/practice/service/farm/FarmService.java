@@ -220,5 +220,33 @@ public class FarmService {
         farmMemberRepo.save(member);
     }
 
+    // FarmService.java에 추가
+    @Transactional
+    public void removeMember(Long farmId, Long memberUserId, Long currentUserId) {
+        // 1. 초대자(내보내는 사람)가 OWNER인지 체크
+        FarmMember remover = farmMemberRepo.findByFarmIdAndUserId(farmId, currentUserId)
+                .orElseThrow(() -> new FarmException("농장 멤버가 아닙니다."));
+
+        if (remover.getRole() != FarmRole.OWNER) {
+            throw new FarmException("OWNER만 멤버를 내보낼 수 있습니다.");
+        }
+
+        // 2. 본인 내보내기 방지
+        if (currentUserId.equals(memberUserId)) {
+            throw new FarmException("본인을 내보낼 수 없습니다.");
+        }
+
+        // 3. 대상 멤버 확인
+        FarmMember targetMember = farmMemberRepo.findByFarmIdAndUserId(farmId, memberUserId)
+                .orElseThrow(() -> new FarmException("해당 멤버가 농장에 없습니다."));
+
+        if (targetMember.getRole() == FarmRole.OWNER) {
+            throw new FarmException("OWNER는 내보낼 수 없습니다.");
+        }
+
+        // 4. 즉시 삭제
+        farmMemberRepo.delete(targetMember);
+    }
+
 
 }

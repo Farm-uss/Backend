@@ -44,13 +44,13 @@
 
 ### 1) First setup
 ```bash
-cp .env.local.example .env.local
-docker compose --env-file .env.local -f docker-compose.local.yml up -d
+cp ..env.local.example ..env.local
+docker compose --env-file ..env.local -f docker-compose.local.yml up -d
 ```
 
 ### 2) Check DB container
 ```bash
-docker compose --env-file .env.local -f docker-compose.local.yml ps
+docker compose --env-file ..env.local -f docker-compose.local.yml ps
 ```
 
 ### 3) Run backend with same DB
@@ -71,7 +71,7 @@ AI_INFERENCE_BASE_URL=http://127.0.0.1:8001 \
 
 ### 4) Stop
 ```bash
-docker compose --env-file .env.local -f docker-compose.local.yml down
+docker compose --env-file ..env.local -f docker-compose.local.yml down
 ```
 
 ### Note
