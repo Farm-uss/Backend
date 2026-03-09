@@ -2,7 +2,8 @@ package com.example.practice.controller.crops;
 
 import com.example.practice.common.config.TokenAuthFilter;
 import com.example.practice.dto.crops.GddSummaryResponse;
-import com.example.practice.dto.crops.GddTimeSeriesResponse;
+import com.example.practice.dto.crops.GddSummaryCheckResponse;
+import com.example.practice.dto.crops.GddWindowSeriesResponse;
 import com.example.practice.dto.crops.GrowthDiaryCardResponse;
 import com.example.practice.dto.crops.GrowthDiaryDetailResponse;
 import com.example.practice.dto.crops.GrowthMetricResponse;
@@ -13,8 +14,8 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -35,24 +36,23 @@ public class FarmCropGddController {
 
     @Operation(summary = "GDD 요약", description = "목표 성장일/현재 성장일/예상 수확일 요약을 반환합니다.")
     @GetMapping("/{farmId}/crops/{cropsId}/gdd/summary")
-    public GddSummaryResponse getSummary(
+    public GddSummaryCheckResponse getSummary(
             @PathVariable Long farmId,
             @PathVariable Long cropsId,
             @AuthenticationPrincipal TokenAuthFilter.UserPrincipal user
     ) {
-        return gddSummaryService.getSummary(farmId, cropsId, user.id());
+        return GddSummaryCheckResponse.ok(gddSummaryService.getSummary(farmId, cropsId, user.id()));
     }
 
-    @Operation(summary = "GDD 시계열", description = "기간(from~to)의 일별 GDD 및 누적 GDD를 반환합니다.")
-    @GetMapping("/{farmId}/crops/{cropsId}/gdd")
-    public List<GddTimeSeriesResponse> getTimeSeries(
+    @Operation(summary = "GDD 구간 시계열", description = "파종일부터 오늘까지의 GDD를 3/7/31일 구간 합계로 반환합니다.")
+    @GetMapping("/{farmId}/crops/{cropsId}/gdd/windows")
+    public List<GddWindowSeriesResponse> getWindowedTimeSeries(
             @PathVariable Long farmId,
             @PathVariable Long cropsId,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @RequestParam int windowDays,
             @AuthenticationPrincipal TokenAuthFilter.UserPrincipal user
     ) {
-        return gddSummaryService.getTimeSeries(farmId, cropsId, user.id(), from, to);
+        return gddSummaryService.getWindowedTimeSeries(farmId, cropsId, user.id(), windowDays);
     }
 
     @Operation(summary = "성장 지표 시계열", description = "기간(from~to)의 특정 성장 지표(metric) 시계열을 반환합니다.")

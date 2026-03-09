@@ -22,6 +22,28 @@ public interface CropGddDailyRepository extends JpaRepository<CropGddDaily, Long
     );
 
     @Query("""
+        select c.targetDate
+        from CropGddDaily c
+        where c.crops.cropsId = :cropsId
+          and c.targetDate between :from and :to
+    """)
+    List<LocalDate> findSavedDatesByCropsIdAndDateRange(@Param("cropsId") Long cropsId,
+                                                         @Param("from") LocalDate from,
+                                                         @Param("to") LocalDate to);
+
+    @Query("""
+        select (count(c) > 0)
+        from CropGddDaily c
+        where c.crops.cropsId = :cropsId
+          and c.targetDate between :from and :to
+          and c.source = :source
+    """)
+    boolean existsByCropsIdAndDateRangeAndSource(@Param("cropsId") Long cropsId,
+                                                  @Param("from") LocalDate from,
+                                                  @Param("to") LocalDate to,
+                                                  @Param("source") String source);
+
+    @Query("""
         select coalesce(sum(c.gdd), 0)
         from CropGddDaily c
         where c.crops.cropsId = :cropsId

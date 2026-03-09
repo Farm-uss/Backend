@@ -13,29 +13,31 @@ import java.util.List;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class GddSchedulerService {
+public class SensorGddSchedulerService {
 
     private final CropsRepository cropsRepository;
-    private final GddIngestionService gddIngestionService;
+    private final SensorGddIngestionService sensorGddIngestionService;
 
-    @Scheduled(cron = "${gdd.scheduler.cron:0 10 3 * * *}")
-    public void refreshDailyGdd() {
+    @Scheduled(cron = "${gdd.scheduler.cron:0 10 0 * * *}")
+    public void refreshPreviousDayGdd() {
+        LocalDate targetDate = LocalDate.now().minusDays(1);
         List<Crops> crops = cropsRepository.findAllByPlantingDateIsNotNull();
-        LocalDate today = LocalDate.now();
 
         int success = 0;
         int failed = 0;
 
         for (Crops crop : crops) {
             try {
-                gddIngestionService.ensureDailyGddSaved(crop, crop.getPlantingDate(), today);
+                sensorGddIngestionService.upsertOneDay(crop, targetDate);
                 success++;
             } catch (Exception e) {
                 failed++;
-                log.warn("GDD scheduled refresh failed. cropsId={} message={}", crop.getCropsId(), e.getMessage());
+                log.warn("Sensor GDD scheduled refresh failed. cropsId={} targetDate={} message={}",
+                        crop.getCropsId(), targetDate, e.getMessage());
             }
         }
 
-        log.info("GDD scheduled refresh finished. total={} success={} failed={}", crops.size(), success, failed);
+        log.info("Sensor GDD scheduled refresh finished. date={} total={} success={} failed={}",
+                targetDate, crops.size(), success, failed);
     }
 }
