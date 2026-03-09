@@ -30,7 +30,7 @@ server:
       charset: UTF-8
       force: true
       enabled: true
-  address: ${SERVER_ADDRESS}
+  address: ${SERVER_ADDRESS:0.0.0.0}
 
 file:
   upload-dir: ${FILE_UPLOAD_DIR:/home/farmus_images/}
