@@ -123,18 +123,18 @@ public class GddSummaryService {
             Long farmId,
             Long cropsId,
             Long userId,
-            LocalDate from,
-            LocalDate to,
             int windowDays
     ) {
-        if (from.isAfter(to)) {
-            throw new AppException(HttpStatus.BAD_REQUEST, "from must be less than or equal to to");
-        }
         if (windowDays != 3 && windowDays != 7 && windowDays != 31) {
             throw new AppException(HttpStatus.BAD_REQUEST, "windowDays must be one of 3, 7, 31");
         }
 
         Crops crop = getAccessibleCrop(farmId, cropsId, userId);
+        if (crop.getPlantingDate() == null) {
+            throw new AppException(HttpStatus.BAD_REQUEST, "plantingDate is required");
+        }
+        LocalDate from = crop.getPlantingDate();
+        LocalDate to = LocalDate.now();
         sensorGddIngestionService.ensureDateRangeSaved(crop, from, to);
 
         List<CropGddDaily> rows = cropGddDailyRepository

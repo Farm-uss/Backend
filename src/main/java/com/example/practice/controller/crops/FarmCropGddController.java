@@ -14,8 +14,8 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -44,17 +44,15 @@ public class FarmCropGddController {
         return GddSummaryCheckResponse.ok(gddSummaryService.getSummary(farmId, cropsId, user.id()));
     }
 
-    @Operation(summary = "GDD 구간 시계열", description = "기간(from~to)의 GDD를 3/7/31일 구간 합계로 반환합니다.")
+    @Operation(summary = "GDD 구간 시계열", description = "파종일부터 오늘까지의 GDD를 3/7/31일 구간 합계로 반환합니다.")
     @GetMapping("/{farmId}/crops/{cropsId}/gdd/windows")
     public List<GddWindowSeriesResponse> getWindowedTimeSeries(
             @PathVariable Long farmId,
             @PathVariable Long cropsId,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             @RequestParam int windowDays,
             @AuthenticationPrincipal TokenAuthFilter.UserPrincipal user
     ) {
-        return gddSummaryService.getWindowedTimeSeries(farmId, cropsId, user.id(), from, to, windowDays);
+        return gddSummaryService.getWindowedTimeSeries(farmId, cropsId, user.id(), windowDays);
     }
 
     @Operation(summary = "성장 지표 시계열", description = "기간(from~to)의 특정 성장 지표(metric) 시계열을 반환합니다.")
