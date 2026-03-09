@@ -3,7 +3,7 @@ package com.example.practice.controller.crops;
 import com.example.practice.common.config.TokenAuthFilter;
 import com.example.practice.dto.crops.GddSummaryResponse;
 import com.example.practice.dto.crops.GddSummaryCheckResponse;
-import com.example.practice.dto.crops.GddTimeSeriesResponse;
+import com.example.practice.dto.crops.GddWindowSeriesResponse;
 import com.example.practice.dto.crops.GrowthDiaryCardResponse;
 import com.example.practice.dto.crops.GrowthDiaryDetailResponse;
 import com.example.practice.dto.crops.GrowthMetricResponse;
@@ -44,16 +44,17 @@ public class FarmCropGddController {
         return GddSummaryCheckResponse.ok(gddSummaryService.getSummary(farmId, cropsId, user.id()));
     }
 
-    @Operation(summary = "GDD 시계열", description = "기간(from~to)의 일별 GDD 및 누적 GDD를 반환합니다.")
-    @GetMapping("/{farmId}/crops/{cropsId}/gdd")
-    public List<GddTimeSeriesResponse> getTimeSeries(
+    @Operation(summary = "GDD 구간 시계열", description = "기간(from~to)의 GDD를 3/7/31일 구간 합계로 반환합니다.")
+    @GetMapping("/{farmId}/crops/{cropsId}/gdd/windows")
+    public List<GddWindowSeriesResponse> getWindowedTimeSeries(
             @PathVariable Long farmId,
             @PathVariable Long cropsId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @RequestParam int windowDays,
             @AuthenticationPrincipal TokenAuthFilter.UserPrincipal user
     ) {
-        return gddSummaryService.getTimeSeries(farmId, cropsId, user.id(), from, to);
+        return gddSummaryService.getWindowedTimeSeries(farmId, cropsId, user.id(), from, to, windowDays);
     }
 
     @Operation(summary = "성장 지표 시계열", description = "기간(from~to)의 특정 성장 지표(metric) 시계열을 반환합니다.")

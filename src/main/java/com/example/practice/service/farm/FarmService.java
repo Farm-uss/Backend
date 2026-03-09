@@ -85,6 +85,7 @@ public class FarmService {
         crop.setCropCode(growthStandard.getCropCode());
         crop.setBaseTemp(growthStandard.getBaseTemp());
         crop.setTargetGdd(growthStandard.getTargetGdd());
+        crop.setPlantingDate(savedFarm.getCreatedAt().toLocalDate());
         cropsRepo.save(crop);
 
         // 4. 멤버 등록 (소유자)
