@@ -57,7 +57,8 @@
 
 ## 3) Farm-Us API 응답 계약 (BE -> Client)
 
-`/api/v1/farms/{farmId}/crops/{cropsId}/vision-inference`는 `VisionInferenceCheckResponse`를 반환합니다.
+`/api/v1/farms/{farmId}/crops/{cropsId}/vision-inference`(병해충)와
+`/api/v1/farms/{farmId}/crops/{cropsId}/growth-inference`(생장)는 `VisionInferenceCheckResponse`를 반환합니다.
 
 ```json
 {

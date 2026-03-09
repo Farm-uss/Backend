@@ -3,6 +3,8 @@ package com.example.practice.service.crops;
 import com.example.practice.common.error.AppException;
 import com.example.practice.dto.crops.AiPredictResponse;
 import com.example.practice.dto.crops.DiseaseCheckData;
+import com.example.practice.dto.crops.GrowthCheckData;
+import com.example.practice.dto.crops.GrowthInferenceCheckResponse;
 import com.example.practice.dto.crops.VisionInferenceCheckResponse;
 import com.example.practice.entity.crops.Crops;
 import com.example.practice.entity.crops.DiseaseGuide;
@@ -54,6 +56,7 @@ import java.util.stream.Collectors;
 public class VisionInferenceService {
     private static final String TASK_DISEASE_CLASSIFICATION = "DISEASE_CLASSIFICATION";
     private static final String TASK_GROWTH_MEASUREMENT = "GROWTH_MEASUREMENT";
+    private static final BigDecimal GROWTH_CONFIDENCE_THRESHOLD = BigDecimal.valueOf(0.6);
 
     private final FarmMemberRepository farmMemberRepository;
     private final CropsRepository cropsRepository;
@@ -84,7 +87,54 @@ public class VisionInferenceService {
     );
 
     @Transactional
-    public VisionInferenceCheckResponse inferAndSave(
+    public VisionInferenceCheckResponse inferDiseaseAndSave(
+            Long farmId,
+            Long cropsId,
+            Long userId,
+            MultipartFile image,
+            Long cameraId,
+            OffsetDateTime measuredAt
+    ) {
+        InferenceContext context = inferAndSave(
+                farmId,
+                cropsId,
+                userId,
+                image,
+                cameraId,
+                TASK_DISEASE_CLASSIFICATION,
+                null,
+                measuredAt
+        );
+        DiseaseCheckData data = toCheckData(context.uploadedImage(), context.inference(), context.aiResponse());
+        return VisionInferenceCheckResponse.ok(data);
+    }
+
+    @Transactional
+    public GrowthInferenceCheckResponse inferGrowthAndSave(
+            Long farmId,
+            Long cropsId,
+            Long userId,
+            MultipartFile image,
+            Long cameraId,
+            Integer cropCode,
+            OffsetDateTime measuredAt
+    ) {
+        InferenceContext context = inferAndSave(
+                farmId,
+                cropsId,
+                userId,
+                image,
+                cameraId,
+                TASK_GROWTH_MEASUREMENT,
+                cropCode,
+                measuredAt
+        );
+        GrowthCheckData data = toGrowthCheckData(context.uploadedImage(), context.inference(), context.aiResponse());
+        return GrowthInferenceCheckResponse.ok(data);
+    }
+
+    @Transactional
+    private InferenceContext inferAndSave(
             Long farmId,
             Long cropsId,
             Long userId,
@@ -156,10 +206,7 @@ public class VisionInferenceService {
         measurement.setUpdatedAt(OffsetDateTime.now(ZoneOffset.UTC));
         growthMeasurementRepository.save(measurement);
 
-        DiseaseCheckData data = toCheckData(uploadedImage, inference, aiResponse);
-        return VisionInferenceCheckResponse.ok(
-                data
-        );
+        return new InferenceContext(uploadedImage, inference, aiResponse);
     }
 
     private DiseaseCheckData toCheckData(ImageCapture uploadedImage, VisionInference inference, AiPredictResponse aiResponse) {
@@ -207,6 +254,27 @@ public class VisionInferenceService {
                 causes,
                 symptoms,
                 solutions,
+                uploadedImage.getCaptureId(),
+                inference.getInferenceId(),
+                aiResponse.modelName(),
+                aiResponse.modelVersion(),
+                aiResponse.inferredAt()
+        );
+    }
+
+    private GrowthCheckData toGrowthCheckData(ImageCapture uploadedImage, VisionInference inference, AiPredictResponse aiResponse) {
+        int leafCount = leafCountByThreshold(aiResponse.topConfidences(), GROWTH_CONFIDENCE_THRESHOLD);
+        if (leafCount < 0) {
+            leafCount = aiResponse.leafCount() == null ? 0 : Math.max(aiResponse.leafCount(), 0);
+        }
+        BigDecimal sizePxTotal = firstNonNull(aiResponse.sizePxTotal(), aiResponse.sizeCm(), BigDecimal.ZERO);
+        int confidencePercent = toPercent(aiResponse.confidence());
+
+        return new GrowthCheckData(
+                leafCount,
+                sizePxTotal,
+                GROWTH_CONFIDENCE_THRESHOLD,
+                confidencePercent,
                 uploadedImage.getCaptureId(),
                 inference.getInferenceId(),
                 aiResponse.modelName(),
@@ -317,6 +385,15 @@ public class VisionInferenceService {
         Integer fruitCount = firstNonNull(parsed.fruitCount(), intValue(raw, "fruit_count"), intValue(raw, "fruitCount"));
         BigDecimal sizeCm = firstNonNull(parsed.sizeCm(), decimalValue(raw, "size_cm"), decimalValue(raw, "sizeCm"));
         String summary = firstNonBlank(parsed.summary(), textValue(raw, "summary"));
+        List<BigDecimal> topConfidences = parsed.topConfidences();
+        if (topConfidences == null || topConfidences.isEmpty()) {
+            topConfidences = decimalListValue(raw, "topConfidences", "top_confidences");
+        }
+        BigDecimal sizePxTotal = firstNonNull(
+                parsed.sizePxTotal(),
+                decimalValue(raw, "sizePxTotal"),
+                decimalValue(raw, "size_px_total")
+        );
 
         return new AiPredictResponse(
                 disease,
@@ -334,7 +411,9 @@ public class VisionInferenceService {
                 leafCount,
                 fruitCount,
                 sizeCm,
-                summary
+                summary,
+                topConfidences,
+                sizePxTotal
         );
     }
 
@@ -496,6 +575,49 @@ public class VisionInferenceService {
         return null;
     }
 
+    private List<BigDecimal> decimalListValue(JsonNode raw, String primaryKey, String fallbackKey) {
+        JsonNode node = raw.get(primaryKey);
+        if (node == null || node.isNull()) {
+            node = raw.get(fallbackKey);
+        }
+        if (node == null || node.isNull() || !node.isArray()) {
+            return null;
+        }
+
+        List<BigDecimal> values = new ArrayList<>();
+        for (JsonNode item : node) {
+            if (item == null || item.isNull()) {
+                continue;
+            }
+            if (item.isNumber()) {
+                values.add(item.decimalValue());
+                continue;
+            }
+            if (item.isTextual()) {
+                try {
+                    values.add(new BigDecimal(item.asText().trim()));
+                } catch (NumberFormatException ignored) {
+                    // Skip invalid item.
+                }
+            }
+        }
+        return values;
+    }
+
+    private int leafCountByThreshold(List<BigDecimal> topConfidences, BigDecimal threshold) {
+        if (topConfidences == null || topConfidences.isEmpty()) {
+            return -1;
+        }
+
+        int count = 0;
+        for (BigDecimal confidence : topConfidences) {
+            if (confidence != null && confidence.compareTo(threshold) >= 0) {
+                count++;
+            }
+        }
+        return count;
+    }
+
     @SafeVarargs
     private static <T> T firstNonNull(T... values) {
         if (values == null) {
@@ -532,6 +654,13 @@ public class VisionInferenceService {
         if (TASK_GROWTH_MEASUREMENT.equals(taskType) && cropCode == null) {
             throw new AppException(HttpStatus.BAD_REQUEST, "cropCode is required for GROWTH_MEASUREMENT");
         }
+    }
+
+    private record InferenceContext(
+            ImageCapture uploadedImage,
+            VisionInference inference,
+            AiPredictResponse aiResponse
+    ) {
     }
 
     private String saveCaptureImage(byte[] imageBytes, String originalFilename) {

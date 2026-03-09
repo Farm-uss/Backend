@@ -32,7 +32,11 @@ public record AiPredictResponse(
         @JsonProperty("fruit_count") Integer fruitCount,
         @JsonAlias({"sizeCm", "leaf_area"})
         @JsonProperty("size_cm") BigDecimal sizeCm,
-        String summary
+        String summary,
+        @JsonAlias({"top_confidences"})
+        @JsonProperty("topConfidences") List<BigDecimal> topConfidences,
+        @JsonAlias({"size_px_total"})
+        @JsonProperty("sizePxTotal") BigDecimal sizePxTotal
 ) {
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record TopKItem(String label, BigDecimal p) {
