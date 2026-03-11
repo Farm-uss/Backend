@@ -5,6 +5,8 @@ import lombok.Getter;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Setter;
 
+import java.util.List;
+
 
 @Getter
 @Setter
@@ -24,4 +26,6 @@ public class SignUpRequest {
 
     @Schema(description = "전화번호", example = "010-1111-1111")
     private String phoneNumber;
+
+    private List<String> profileImageIds;
 }

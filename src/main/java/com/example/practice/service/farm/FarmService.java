@@ -125,7 +125,8 @@ public class FarmService {
                                 return new FarmMemberInfo(
                                         user.getId(),
                                         user.getNickname(),
-                                        member.getRole()
+                                        member.getRole(),
+                                        user.getProfileImageUrl()
                                 );
                             })
                             .toList();
