@@ -118,7 +118,7 @@ public class GddSummaryService {
         return response;
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public List<GddWindowSeriesResponse> getWindowedTimeSeries(
             Long farmId,
             Long cropsId,
