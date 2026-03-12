@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.security.SecureRandom;
 import java.time.OffsetDateTime;
 import java.util.Base64;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -33,13 +34,11 @@ public class AuthService {
 
     @Transactional
     public void signup(SignUpRequest req) {
-        if (req == null
-            || req.getEmail() == null || req.getEmail().trim().isEmpty()
-            || req.getPassword() == null || req.getPassword().trim().isEmpty()
-            || req.getNickname() == null || req.getNickname().trim().isEmpty()) {
+        if (req == null || req.getEmail() == null || req.getEmail().trim().isEmpty()
+                || req.getPassword() == null || req.getPassword().trim().isEmpty()
+                || req.getNickname() == null || req.getNickname().trim().isEmpty()) {
             throw new AppException(HttpStatus.BAD_REQUEST, "email/password/nickname are required");
-       }
-
+        }
 
         if (userRepository.existsByEmail(req.getEmail())) {
             throw new AppException(HttpStatus.CONFLICT, "email already exists");
@@ -48,16 +47,31 @@ public class AuthService {
             throw new AppException(HttpStatus.BAD_REQUEST, "phoneNumber is required");
         }
 
+        String profileImageUrl = buildS3ImageUrl(req.getProfileImageIds());
+
         User user = User.builder()
                 .email(req.getEmail().trim().toLowerCase())
                 .passwordHash(passwordEncoder.encode(req.getPassword()))
                 .nickname(req.getNickname().trim())
                 .phone_number(req.getPhoneNumber())
+                .profileImageUrl(profileImageUrl)
                 .createdAt(OffsetDateTime.now())
                 .build();
 
         userRepository.save(user);
     }
+
+    private String buildS3ImageUrl(List<String> imageIds) {
+        if (imageIds == null || imageIds.isEmpty()) return null;
+
+        String firstId = imageIds.get(0).trim();
+        if (!firstId.matches("^[0-9]{1,10}$")) {  // 1~10자리 숫자만
+            throw new AppException(HttpStatus.BAD_REQUEST, "invalid image ID");
+        }
+
+        return String.format("https://hansungfarmimg.s3.eu-north-1.amazonaws.com/user/%s.png", firstId);
+    }
+
 
     @Transactional
     public AuthResponse login(LoginRequest req) {
@@ -68,7 +82,6 @@ public class AuthService {
             throw new AppException(HttpStatus.UNAUTHORIZED, "invalid credentials");
         }
 
-        // ✅ refresh token(DB)
         String refreshToken = generateToken();
         OffsetDateTime now = OffsetDateTime.now();
 
@@ -80,7 +93,6 @@ public class AuthService {
                 .build();
         authTokenRepository.save(authToken);
 
-        // ✅ access token(JWT)
         String accessToken = jwtProvider.createAccessToken(user.getId(), user.getEmail());
 
         Long userId = user.getId();
