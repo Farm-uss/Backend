@@ -1,5 +1,6 @@
 package com.example.practice.controller.crops;
 
+import com.example.practice.dto.crops.CropCodeResponse;
 import com.example.practice.dto.crops.CropStandardResponse;
 import com.example.practice.service.crops.CropStandardService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -8,6 +9,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -26,5 +28,17 @@ public class CropStandardController {
     public List<CropStandardResponse> getCropStandards() {
         return cropStandardService.getAllStandards();
     }
+
+    @Operation(summary = "작물 이름으로 코드 조회", description = "작물 이름으로 cropCode 반환. 없으면 exists=false")
+    @GetMapping("/code")
+    public CropCodeResponse getCropCode(@RequestParam String cropName) {
+        return cropStandardService.getCropCodeByName(cropName);
+    }
+
+
+
 }
+
+
+
 
