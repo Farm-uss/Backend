@@ -113,7 +113,7 @@ public class FarmService {
 
                     // OWNER 이름 (기존 메서드 + userRepo)
                     String ownerName = farmMemberRepo.findByFarmIdAndRole(farm.getId(), FarmRole.OWNER)
-                            .filter(Objects::nonNull)  // null 필터링
+                            .filter(Objects::nonNull)  // true 경고 괜찮음
                             .flatMap(owner -> userRepo.findById(owner.getUserId()))
                             .map(User::getNickname)
                             .orElse("알 수 없음");
