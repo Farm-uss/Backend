@@ -95,7 +95,7 @@ public class VisionInferenceService {
             Long cameraId,
             OffsetDateTime measuredAt
     ) {
-        InferenceContext context = inferAndSave(
+        PreparedInferenceContext prepared = prepareInference(
                 farmId,
                 cropsId,
                 userId,
@@ -105,7 +105,8 @@ public class VisionInferenceService {
                 null,
                 measuredAt
         );
-        DiseaseCheckData data = toCheckData(context.uploadedImage(), context.inference(), context.aiResponse());
+        VisionInference inference = saveVisionInference(prepared.uploadedImage(), prepared.aiResponse());
+        DiseaseCheckData data = toCheckData(prepared.uploadedImage(), inference, prepared.aiResponse());
         return VisionInferenceCheckResponse.ok(data);
     }
 
@@ -119,7 +120,7 @@ public class VisionInferenceService {
             Integer cropCode,
             OffsetDateTime measuredAt
     ) {
-        InferenceContext context = inferAndSave(
+        PreparedInferenceContext prepared = prepareInference(
                 farmId,
                 cropsId,
                 userId,
@@ -129,12 +130,14 @@ public class VisionInferenceService {
                 cropCode,
                 measuredAt
         );
-        GrowthCheckData data = toGrowthCheckData(context.uploadedImage(), context.inference(), context.aiResponse());
+        VisionInference inference = saveVisionInference(prepared.uploadedImage(), prepared.aiResponse());
+        saveGrowthMeasurement(prepared.crop(), prepared.capturedAt(), prepared.aiResponse());
+        GrowthCheckData data = toGrowthCheckData(prepared.uploadedImage(), inference, prepared.aiResponse());
         return GrowthInferenceCheckResponse.ok(data);
     }
 
     @Transactional
-    private InferenceContext inferAndSave(
+    private PreparedInferenceContext prepareInference(
             Long farmId,
             Long cropsId,
             Long userId,
@@ -177,6 +180,10 @@ public class VisionInferenceService {
                 cropCode
         );
 
+        return new PreparedInferenceContext(crop, capturedAt, uploadedImage, aiResponse);
+    }
+
+    private VisionInference saveVisionInference(ImageCapture uploadedImage, AiPredictResponse aiResponse) {
         VisionInference inference = new VisionInference();
         inference.setCapture(uploadedImage);
         inference.setModelName(aiResponse.modelName());
@@ -189,8 +196,10 @@ public class VisionInferenceService {
         inference.setUpdatedAt(OffsetDateTime.now(ZoneOffset.UTC));
         inference.setIsAbnormal(aiResponse.isAbnormal());
         inference.setAbnormalReason(aiResponse.abnormalReason());
-        inference = visionInferenceRepository.save(inference);
+        return visionInferenceRepository.save(inference);
+    }
 
+    private void saveGrowthMeasurement(Crops crop, OffsetDateTime capturedAt, AiPredictResponse aiResponse) {
         GrowthMeasurement measurement = new GrowthMeasurement();
         measurement.setCrops(crop);
         measurement.setMeasuredAt(capturedAt);
@@ -205,8 +214,6 @@ public class VisionInferenceService {
         measurement.setCreatedAt(OffsetDateTime.now(ZoneOffset.UTC));
         measurement.setUpdatedAt(OffsetDateTime.now(ZoneOffset.UTC));
         growthMeasurementRepository.save(measurement);
-
-        return new InferenceContext(uploadedImage, inference, aiResponse);
     }
 
     private DiseaseCheckData toCheckData(ImageCapture uploadedImage, VisionInference inference, AiPredictResponse aiResponse) {
@@ -656,9 +663,10 @@ public class VisionInferenceService {
         }
     }
 
-    private record InferenceContext(
+    private record PreparedInferenceContext(
+            Crops crop,
+            OffsetDateTime capturedAt,
             ImageCapture uploadedImage,
-            VisionInference inference,
             AiPredictResponse aiResponse
     ) {
     }
