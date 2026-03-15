@@ -22,6 +22,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 
@@ -112,6 +113,7 @@ public class FarmService {
 
                     // OWNER 이름 (기존 메서드 + userRepo)
                     String ownerName = farmMemberRepo.findByFarmIdAndRole(farm.getId(), FarmRole.OWNER)
+                            .filter(Objects::nonNull)  // true 경고 괜찮음
                             .flatMap(owner -> userRepo.findById(owner.getUserId()))
                             .map(User::getNickname)
                             .orElse("알 수 없음");
@@ -136,9 +138,18 @@ public class FarmService {
                             .filter(m -> m.getRole() == FarmRole.MEMBER)  // ← getRole() 안전
                             .count();
 
-                    // 작물 (기존 그대로)
-                    List<String> cropNames = cropsRepo.findAllByFarm_Id(farm.getId())
-                            .stream().map(Crops::getName).toList();
+                    List<Crops> cropsList = cropsRepo.findAllByFarm_Id(farm.getId());
+
+                    List<String> cropNames = cropsList.stream()
+                            .map(Crops::getName)
+                            .filter(Objects::nonNull)
+                            .toList();
+
+                    String cropCode = cropsList.stream()
+                            .map(Crops::getCropCode)
+                            .filter(Objects::nonNull)
+                            .findFirst()
+                            .orElse(null);
 
                     // 위치 Null 안전
                     String location = locationRepo.findByFarmId(farm.getId())
@@ -154,6 +165,7 @@ public class FarmService {
                             .ownerName(ownerName)
                             .memberCount(memberCount)
                             .crops(cropNames)
+                            .cropCode(cropCode)
                             .members(members)
                             .role(fm.getRole())
                             .img(farm.getImagePath())
