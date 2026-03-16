@@ -151,6 +151,13 @@ public class FarmService {
                             .findFirst()
                             .orElse(null);
 
+                    Long cropsId = cropsList.stream()
+                            .map(Crops::getCropsId)
+                            .findFirst()
+                            .orElse(null);
+
+
+
                     // 위치 Null 안전
                     String location = locationRepo.findByFarmId(farm.getId())
                             .map(Location::getAddress)
@@ -166,6 +173,7 @@ public class FarmService {
                             .memberCount(memberCount)
                             .crops(cropNames)
                             .cropCode(cropCode)
+                            .cropsId(cropsId)
                             .members(members)
                             .role(fm.getRole())
                             .img(farm.getImagePath())
