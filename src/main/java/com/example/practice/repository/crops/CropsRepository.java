@@ -51,4 +51,8 @@ public interface CropsRepository extends JpaRepository<Crops, Long> {
         order by c.plantingDate desc
     """)
     List<Crops> findCurrentCropCandidatesByFarmId(@Param("farmId") Long farmId);
+
+
+
+
 }
