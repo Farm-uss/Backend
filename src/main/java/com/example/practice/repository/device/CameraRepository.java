@@ -10,4 +10,6 @@ public interface CameraRepository extends JpaRepository<Camera, Long> {
     Optional<Camera> findFirstByDevice_FarmIdAndPrimaryTrueOrderByCameraIdAsc(Long farmId);
 
     Optional<Camera> findFirstByDevice_FarmIdOrderByPrimaryDescCameraIdAsc(Long farmId);
+
+    Optional<Camera> findByCameraIdAndDevice_FarmId(Long cameraId, Long farmId);
 }
