@@ -6,7 +6,9 @@ import com.example.practice.common.error.ErrorCode;
 import com.example.practice.dto.Device.DeviceRegisterRequest;
 import com.example.practice.dto.Device.DeviceResponse;
 import com.example.practice.dto.Device.DeviceStatusUpdateRequest;
+import com.example.practice.entity.device.Camera;
 import com.example.practice.entity.device.Device;
+import com.example.practice.repository.device.CameraRepository;
 import com.example.practice.repository.device.DeviceRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -22,6 +24,7 @@ import java.util.stream.Collectors;
 public class DeviceService {
 
     private final DeviceRepository deviceRepository;
+    private final CameraRepository cameraRepository;
 
     @Transactional
     public DeviceResponse register(DeviceRegisterRequest request) {
@@ -29,8 +32,9 @@ public class DeviceService {
             throw new BusinessException(ErrorCode.DEVICE_UUID_DUPLICATE,
                     "uuid: " + request.getDeviceUuid());
         }
-        Device device = Device.create(request.getDeviceUuid(), request.getName(), request.getFarmId());
-        return DeviceResponse.from(deviceRepository.save(device));
+        Device device = deviceRepository.save(Device.create(request.getDeviceUuid(), request.getName(), request.getFarmId()));
+        Camera camera = createCameraIfRequested(device, request);
+        return DeviceResponse.from(device, camera);
     }
 
     public DeviceResponse getById(Long deviceId) {
@@ -69,5 +73,53 @@ public class DeviceService {
     public Device findById(Long deviceId) {
         return deviceRepository.findById(deviceId)
                 .orElseThrow(() -> new DeviceNotFoundException(deviceId));
+    }
+
+    private Camera createCameraIfRequested(Device device, DeviceRegisterRequest request) {
+        DeviceRegisterRequest.CameraRegisterRequest cameraRequest = request.getCamera();
+        if (cameraRequest == null) {
+            return null;
+        }
+
+        String cameraName = isBlank(cameraRequest.getName())
+                ? defaultCameraName(device.getName())
+                : cameraRequest.getName().trim();
+        String streamKey = isBlank(cameraRequest.getStreamKey())
+                ? defaultStreamKey(device)
+                : cameraRequest.getStreamKey().trim();
+        String streamProtocol = isBlank(cameraRequest.getStreamProtocol())
+                ? "HLS"
+                : cameraRequest.getStreamProtocol().trim().toUpperCase();
+        String captureEndpoint = isBlank(cameraRequest.getCaptureEndpoint())
+                ? null
+                : cameraRequest.getCaptureEndpoint().trim();
+        boolean primary = cameraRequest.getPrimary() == null || cameraRequest.getPrimary();
+
+        Camera camera = Camera.create(
+                device,
+                cameraName,
+                streamKey,
+                streamProtocol,
+                captureEndpoint,
+                primary
+        );
+        return cameraRepository.save(camera);
+    }
+
+    private String defaultCameraName(String deviceName) {
+        if (isBlank(deviceName)) {
+            return "기본 카메라";
+        }
+        return deviceName.trim() + " 카메라";
+    }
+
+    private String defaultStreamKey(Device device) {
+        String uuid = device.getDeviceUuid() == null ? "device" : device.getDeviceUuid().replace("-", "");
+        String suffix = uuid.length() <= 8 ? uuid : uuid.substring(0, 8);
+        return "farm-" + device.getFarmId() + "-cam-" + suffix;
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 }

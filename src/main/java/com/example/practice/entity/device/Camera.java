@@ -70,4 +70,24 @@ public class Camera extends BaseTimeEntity {
 
     @Column(name = "last_captured_at", columnDefinition = "TIMESTAMP WITH TIME ZONE")
     private OffsetDateTime lastCapturedAt;
+
+    public static Camera create(
+            Device device,
+            String name,
+            String streamKey,
+            String streamProtocol,
+            String captureEndpoint,
+            boolean primary
+    ) {
+        return Camera.builder()
+                .device(device)
+                .name(name)
+                .streamKey(streamKey)
+                .streamProtocol(streamProtocol)
+                .captureEndpoint(captureEndpoint)
+                .status(CameraStatus.ONLINE)
+                .primary(primary)
+                .lastSeenAt(OffsetDateTime.now())
+                .build();
+    }
 }
