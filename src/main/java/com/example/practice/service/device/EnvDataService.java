@@ -32,25 +32,22 @@ public class EnvDataService {
     private final SensorService sensorService;
     private final SensorReadingService sensorReadingService;
 
-    /**
-     * 라즈베리파이로부터 묶음 데이터 수신 처리
-     *
-     * <ol>
-     *   <li>env_data 테이블에 묶음 저장</li>
-     *   <li>등록된 센서 타입에 한해 sensor_reading 개별 저장</li>
-     *   <li>device.lastSeenAt 갱신</li>
-     * </ol>
-     */
     @Transactional
     public EnvDataResponse save(EnvDataSaveRequest request) {
         Device device = deviceService.findById(request.getDeviceId());
         OffsetDateTime measuredAt = resolvedMeasuredAt(request.getMeasuredAt());
 
         // 1. 묶음 저장
+        // humidity 제거 → null 고정, ph 추가
         EnvData envData = EnvData.create(
-                request.getTemp(), request.getHumidity(), request.getPh(),
-                request.getSoilMoisture(), request.getIlluminance(),
-                request.getEc(), request.getCo2(), device
+                request.getTemp(),
+                null,
+                request.getPh(),
+                request.getSoilMoisture(),
+                request.getIlluminance(),
+                request.getEc(),
+                request.getCo2(),
+                device
         );
         envDataRepository.save(envData);
 
@@ -79,12 +76,13 @@ public class EnvDataService {
 
     private Map<SensorType, BigDecimal> buildReadingMap(EnvDataSaveRequest req) {
         Map<SensorType, BigDecimal> map = new EnumMap<>(SensorType.class);
+        // 실제 수신하는 센서 항목만 매핑
         if (req.getTemp() != null)         map.put(SensorType.SOIL_TEMPERATURE, req.getTemp());
-        if (req.getHumidity() != null)     map.put(SensorType.SOIL_HUMIDITY,    req.getHumidity());
         if (req.getSoilMoisture() != null) map.put(SensorType.SOIL_MOISTURE,    req.getSoilMoisture());
         if (req.getIlluminance() != null)  map.put(SensorType.ILLUMINANCE,      req.getIlluminance());
         if (req.getEc() != null)           map.put(SensorType.EC,               req.getEc());
         if (req.getCo2() != null)          map.put(SensorType.CO2,              req.getCo2());
+        if (req.getPh() != null)        map.put(SensorType.PH,               req.getPh());
         return map;
     }
 
