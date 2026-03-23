@@ -7,7 +7,9 @@ public enum SensorType {
     SOIL_HUMIDITY("토양 습도", "%"),
     SOIL_MOISTURE("토양 수분", "%"),
     CO2("Co2", "ppm"),
-    EC("EC", "dS/m");
+    EC("EC", "dS/m"),
+    PH("pH", "pH");
+
 
     private final String description;
     private final String defaultUnit;

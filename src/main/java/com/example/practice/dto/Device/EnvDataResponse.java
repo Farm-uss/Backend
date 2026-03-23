@@ -12,25 +12,27 @@ import java.time.OffsetDateTime;
 public class EnvDataResponse {
 
     private Long envDataId;
-    private BigDecimal temp;
-    private BigDecimal humidity;
-    private BigDecimal soilMoisture;
-    private BigDecimal illuminance;
-    private BigDecimal ec;
-    private BigDecimal co2;
+    private BigDecimal temp;          // 토양 온도
+    private BigDecimal soilMoisture;  // 토양 수분
+    private BigDecimal ph;            // pH
+    private BigDecimal illuminance;   // 조도
+    private BigDecimal ec;            // EC
+    private BigDecimal co2;           // CO2
     private Long deviceId;
+    private OffsetDateTime measuredAt;
     private OffsetDateTime createdAt;
 
     public static EnvDataResponse from(EnvData envData) {
         return EnvDataResponse.builder()
                 .envDataId(envData.getEnvDataId())
                 .temp(envData.getTemp())
-                .humidity(envData.getHumidity())
                 .soilMoisture(envData.getSoilMoisture())
+                .ph(envData.getPh())
                 .illuminance(envData.getIlluminance())
                 .ec(envData.getEc())
                 .co2(envData.getCo2())
                 .deviceId(envData.getDevice().getDeviceId())
+                .measuredAt(envData.getMeasuredAt())
                 .createdAt(envData.getCreatedAt())
                 .build();
     }
