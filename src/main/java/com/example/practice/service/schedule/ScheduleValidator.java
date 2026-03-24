@@ -66,9 +66,6 @@ public class ScheduleValidator {
         if (request.getThresholdValue() == null) {
             throw new AppException(HttpStatus.BAD_REQUEST, "임계값은 필수입니다.");
         }
-        if (request.getDurationMinutes() == null || request.getDurationMinutes() <= 0) {
-            throw new AppException(HttpStatus.BAD_REQUEST, "작동 시간은 1분 이상이어야 합니다.");
-        }
     }
 
     public void validateUpdateConditionSchedule(UpdateConditionScheduleRequest request) {
@@ -85,9 +82,6 @@ public class ScheduleValidator {
         }
         if (request.getThresholdValue() == null) {
             throw new AppException(HttpStatus.BAD_REQUEST, "임계값은 필수입니다.");
-        }
-        if (request.getDurationMinutes() == null || request.getDurationMinutes() <= 0) {
-            throw new AppException(HttpStatus.BAD_REQUEST, "작동 시간은 1분 이상이어야 합니다.");
         }
     }
 

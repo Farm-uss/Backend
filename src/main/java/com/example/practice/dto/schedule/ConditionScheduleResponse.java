@@ -1,4 +1,3 @@
-// src/main/java/com/example/practice/dto/schedule/ConditionScheduleResponse.java
 package com.example.practice.dto.schedule;
 
 import com.example.practice.entity.schedule.AutomationSchedule;
@@ -50,6 +49,6 @@ public class ConditionScheduleResponse {
         return schedule.getConditionRule().getSensorType().name()
                 + " " + schedule.getConditionRule().getOperator().getDescription()
                 + " " + schedule.getConditionRule().getThresholdValue()
-                + " / " + schedule.getConditionRule().getDurationMinutes() + "분 작동";
+                + " 일 때 자동 실행";
     }
 }

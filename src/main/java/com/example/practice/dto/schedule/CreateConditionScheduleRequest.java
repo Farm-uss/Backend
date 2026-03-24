@@ -18,6 +18,5 @@ public class CreateConditionScheduleRequest {
     private SensorType sensorType;
     private ConditionOperator operator;
     private BigDecimal thresholdValue;
-    private Integer durationMinutes;
     private Boolean autoStopWhenRecovered;
 }

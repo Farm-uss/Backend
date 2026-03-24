@@ -69,7 +69,6 @@ public class ScheduleCommandService {
                 request.getSensorType(),
                 request.getOperator(),
                 request.getThresholdValue(),
-                request.getDurationMinutes(),
                 Boolean.TRUE.equals(request.getAutoStopWhenRecovered())
         );
 
@@ -88,7 +87,6 @@ public class ScheduleCommandService {
                 request.getSensorType(),
                 request.getOperator(),
                 request.getThresholdValue(),
-                request.getDurationMinutes(),
                 Boolean.TRUE.equals(request.getAutoStopWhenRecovered())
         );
         schedule.assignConditionRule(conditionRule);
@@ -164,7 +162,6 @@ public class ScheduleCommandService {
                 request.getSensorType(),
                 request.getOperator(),
                 request.getThresholdValue(),
-                request.getDurationMinutes(),
                 Boolean.TRUE.equals(request.getAutoStopWhenRecovered())
         );
 
@@ -185,7 +182,6 @@ public class ScheduleCommandService {
                     request.getSensorType(),
                     request.getOperator(),
                     request.getThresholdValue(),
-                    request.getDurationMinutes(),
                     Boolean.TRUE.equals(request.getAutoStopWhenRecovered())
             );
         } else {
@@ -193,7 +189,6 @@ public class ScheduleCommandService {
                     request.getSensorType(),
                     request.getOperator(),
                     request.getThresholdValue(),
-                    request.getDurationMinutes(),
                     Boolean.TRUE.equals(request.getAutoStopWhenRecovered())
             );
             schedule.assignConditionRule(conditionRule);

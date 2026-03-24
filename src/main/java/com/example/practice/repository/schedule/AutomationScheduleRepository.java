@@ -75,7 +75,6 @@ public interface AutomationScheduleRepository extends JpaRepository<AutomationSc
               and cr.sensorType = :sensorType
               and cr.operator = :operator
               and cr.thresholdValue = :thresholdValue
-              and cr.durationMinutes = :durationMinutes
               and cr.autoStopWhenRecovered = :autoStopWhenRecovered
             """)
     boolean existsDuplicateConditionSchedule(
@@ -85,7 +84,6 @@ public interface AutomationScheduleRepository extends JpaRepository<AutomationSc
             @Param("sensorType") SensorType sensorType,
             @Param("operator") ConditionOperator operator,
             @Param("thresholdValue") BigDecimal thresholdValue,
-            @Param("durationMinutes") Integer durationMinutes,
             @Param("autoStopWhenRecovered") boolean autoStopWhenRecovered
     );
 
@@ -100,7 +98,6 @@ public interface AutomationScheduleRepository extends JpaRepository<AutomationSc
               and cr.sensorType = :sensorType
               and cr.operator = :operator
               and cr.thresholdValue = :thresholdValue
-              and cr.durationMinutes = :durationMinutes
               and cr.autoStopWhenRecovered = :autoStopWhenRecovered
             """)
     boolean existsDuplicateConditionScheduleForUpdate(
@@ -111,7 +108,6 @@ public interface AutomationScheduleRepository extends JpaRepository<AutomationSc
             @Param("sensorType") SensorType sensorType,
             @Param("operator") ConditionOperator operator,
             @Param("thresholdValue") BigDecimal thresholdValue,
-            @Param("durationMinutes") Integer durationMinutes,
             @Param("autoStopWhenRecovered") boolean autoStopWhenRecovered
     );
 }
