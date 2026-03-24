@@ -57,6 +57,8 @@ public class SecurityConfig {
                                 "/auth/**"
                         ).permitAll()
 
+
+                                .requestMatchers("/api/led/**").permitAll()
                         .requestMatchers("/api/devices/**").permitAll()
                         .requestMatchers("/api/env-data/**").permitAll()
                         .requestMatchers("/api/sensor-readings/**").permitAll()

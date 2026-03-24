@@ -1,5 +1,6 @@
 package com.example.practice.service.crops;
 
+import com.example.practice.dto.crops.CropCodeResponse;
 import com.example.practice.dto.crops.CropStandardResponse;
 import com.example.practice.repository.crops.CropGrowthStandardRepository;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +26,17 @@ public class CropStandardService {
                         row.getTargetGdd()
                 ))
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public CropCodeResponse getCropCodeByName(String cropName) {
+        return cropGrowthStandardRepository.findByCropName(cropName)
+                .map(standard -> new CropCodeResponse(
+                        standard.getCropCode(),
+                        cropName,
+                        true
+                ))
+                .orElse(new CropCodeResponse(null, cropName, false));
     }
 }
 
