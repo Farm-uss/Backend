@@ -28,6 +28,7 @@ public class FarmSummary {
     private String img;
     private List<String> crops; // 작물 이름 리스트
     private String cropCode;
+    private Long cropsId;
     private FarmRole role;      // 내 역할
     private OffsetDateTime createdDate; // 생성 날짜
 }

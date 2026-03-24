@@ -14,13 +14,12 @@ public class EnvDataSaveRequest {
     @NotNull(message = "장치 ID는 필수입니다.")
     private Long deviceId;
 
-    private BigDecimal temp;
-    private BigDecimal humidity;
-    private BigDecimal soilMoisture;
-    private BigDecimal ph;
-    private BigDecimal illuminance;
-    private BigDecimal ec;
-    private BigDecimal co2;
+    private BigDecimal temp;          // 토양 온도
+    private BigDecimal soilMoisture;  // 토양 수분
+    private BigDecimal ph;            // pH
+    private BigDecimal illuminance;   // 조도
+    private BigDecimal ec;            // EC
+    private BigDecimal co2;           // CO2
 
     /**
      * 라즈베리파이 측정 시각.
