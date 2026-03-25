@@ -1,10 +1,12 @@
-// src/main/java/com/example/practice/service/schedule/ScheduleQueryService.java
 package com.example.practice.service.schedule;
 
 import com.example.practice.common.error.AppException;
+import com.example.practice.dto.schedule.ConditionScheduleResponse;
 import com.example.practice.dto.schedule.ScheduleExecutionHistoryResponse;
-import com.example.practice.dto.schedule.ScheduleResponse;
+import com.example.practice.dto.schedule.ScheduleListItemResponse;
+import com.example.practice.dto.schedule.TimeScheduleResponse;
 import com.example.practice.entity.schedule.AutomationSchedule;
+import com.example.practice.entity.schedule.ScheduleType;
 import com.example.practice.repository.schedule.AutomationScheduleRepository;
 import com.example.practice.repository.schedule.ScheduleExecutionHistoryRepository;
 import lombok.RequiredArgsConstructor;
@@ -23,16 +25,32 @@ public class ScheduleQueryService {
     private final ScheduleExecutionHistoryRepository historyRepository;
     private final ScheduleValidator scheduleValidator;
 
-    public List<ScheduleResponse> getByFarmId(Long farmId) {
+    public List<ScheduleListItemResponse> getByFarmId(Long farmId) {
         scheduleValidator.assertFarmExists(farmId);
 
         return scheduleRepository.findAllByFarmIdOrderByCreatedAtDesc(farmId).stream()
-                .map(ScheduleResponse::from)
+                .map(ScheduleListItemResponse::from)
                 .toList();
     }
 
-    public ScheduleResponse getById(Long scheduleId) {
-        return ScheduleResponse.from(getSchedule(scheduleId));
+    public TimeScheduleResponse getTimeScheduleById(Long scheduleId) {
+        AutomationSchedule schedule = getSchedule(scheduleId);
+
+        if (schedule.getScheduleType() != ScheduleType.TIME_BASED) {
+            throw new AppException(HttpStatus.BAD_REQUEST, "시간 기반 스케줄이 아닙니다.");
+        }
+
+        return TimeScheduleResponse.from(schedule);
+    }
+
+    public ConditionScheduleResponse getConditionScheduleById(Long scheduleId) {
+        AutomationSchedule schedule = getSchedule(scheduleId);
+
+        if (schedule.getScheduleType() != ScheduleType.CONDITION_BASED) {
+            throw new AppException(HttpStatus.BAD_REQUEST, "조건 기반 스케줄이 아닙니다.");
+        }
+
+        return ConditionScheduleResponse.from(schedule);
     }
 
     public List<ScheduleExecutionHistoryResponse> getHistoriesByFarmId(Long farmId) {
