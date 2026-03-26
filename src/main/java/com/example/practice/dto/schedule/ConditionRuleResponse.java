@@ -15,7 +15,6 @@ public class ConditionRuleResponse {
     private SensorType sensorType;
     private ConditionOperator operator;
     private BigDecimal thresholdValue;
-    private Integer durationMinutes;
     private boolean autoStopWhenRecovered;
 
     public static ConditionRuleResponse from(ConditionScheduleRule rule) {
@@ -27,7 +26,6 @@ public class ConditionRuleResponse {
                 .sensorType(rule.getSensorType())
                 .operator(rule.getOperator())
                 .thresholdValue(rule.getThresholdValue())
-                .durationMinutes(rule.getDurationMinutes())
                 .autoStopWhenRecovered(rule.isAutoStopWhenRecovered())
                 .build();
     }

@@ -87,7 +87,8 @@ public class SecurityConfig {
         config.setAllowedOriginPatterns(List.of(
                 "http://localhost:5173",
                 "https://farmus.netlify.app",
-                "https://*.netlify.app"
+                "https://*.netlify.app",
+                "https://farmus.netlify.app/"
         ));
 
         // 허용 메서드 (OPTIONS 꼭 포함)

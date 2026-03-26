@@ -62,7 +62,7 @@ public class ScheduleMapper {
             return schedule.getConditionRule().getSensorType().name()
                     + " " + schedule.getConditionRule().getOperator().getDescription()
                     + " " + schedule.getConditionRule().getThresholdValue()
-                    + " / " + schedule.getConditionRule().getDurationMinutes() + "분 작동";
+                    + " 일 때 자동 실행";
         }
 
         return null;
