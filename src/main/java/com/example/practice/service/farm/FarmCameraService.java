@@ -82,6 +82,15 @@ public class FarmCameraService {
             throw new AppException(HttpStatus.FORBIDDEN, "farm access denied");
         }
 
+        return captureCameraInternal(farmId, cameraId);
+    }
+
+    @Transactional
+    public CameraCaptureResponse captureFarmCameraForSchedule(Long farmId, Long cameraId) {
+        return captureCameraInternal(farmId, cameraId);
+    }
+
+    private CameraCaptureResponse captureCameraInternal(Long farmId, Long cameraId) {
         Camera camera = resolveCamera(farmId, cameraId);
         if (camera.getCaptureEndpoint() == null || camera.getCaptureEndpoint().isBlank()) {
             throw new AppException(HttpStatus.NOT_FOUND, "camera capture endpoint not configured");
