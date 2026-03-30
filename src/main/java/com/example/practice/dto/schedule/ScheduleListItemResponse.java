@@ -12,7 +12,7 @@ import java.util.stream.Collectors;
 
 @Getter
 @Builder
-public class ScheduleResponse {
+public class ScheduleListItemResponse {
     private Long scheduleId;
     private Long farmId;
     private String name;
@@ -22,15 +22,13 @@ public class ScheduleResponse {
     private String scheduleTypeDescription;
     private boolean enabled;
     private String summary;
-    private TimeRuleResponse timeRule;
-    private ConditionRuleResponse conditionRule;
     private OffsetDateTime lastExecutedAt;
     private ExecutionStatus lastExecutionStatus;
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
 
-    public static ScheduleResponse from(AutomationSchedule schedule) {
-        return ScheduleResponse.builder()
+    public static ScheduleListItemResponse from(AutomationSchedule schedule) {
+        return ScheduleListItemResponse.builder()
                 .scheduleId(schedule.getScheduleId())
                 .farmId(schedule.getFarmId())
                 .name(schedule.getName())
@@ -40,8 +38,6 @@ public class ScheduleResponse {
                 .scheduleTypeDescription(schedule.getScheduleType().getDescription())
                 .enabled(schedule.isEnabled())
                 .summary(buildSummary(schedule))
-                .timeRule(TimeRuleResponse.from(schedule.getTimeRule()))
-                .conditionRule(ConditionRuleResponse.from(schedule.getConditionRule()))
                 .lastExecutedAt(schedule.getLastExecutedAt())
                 .lastExecutionStatus(schedule.getLastExecutionStatus())
                 .createdAt(schedule.getCreatedAt())

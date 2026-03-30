@@ -1,4 +1,3 @@
-// src/main/java/com/example/practice/entity/schedule/ConditionScheduleRule.java
 package com.example.practice.entity.schedule;
 
 import com.example.practice.entity.device.SensorType;
@@ -35,22 +34,17 @@ public class ConditionScheduleRule {
     @Column(name = "threshold_value", nullable = false, precision = 12, scale = 4)
     private BigDecimal thresholdValue;
 
-    @Column(name = "duration_minutes", nullable = false)
-    private Integer durationMinutes;
-
     @Column(name = "auto_stop_when_recovered", nullable = false)
     private boolean autoStopWhenRecovered;
 
     public static ConditionScheduleRule create(SensorType sensorType,
                                                ConditionOperator operator,
                                                BigDecimal thresholdValue,
-                                               Integer durationMinutes,
                                                boolean autoStopWhenRecovered) {
         return ConditionScheduleRule.builder()
                 .sensorType(sensorType)
                 .operator(operator)
                 .thresholdValue(thresholdValue)
-                .durationMinutes(durationMinutes)
                 .autoStopWhenRecovered(autoStopWhenRecovered)
                 .build();
     }
@@ -58,12 +52,10 @@ public class ConditionScheduleRule {
     public void update(SensorType sensorType,
                        ConditionOperator operator,
                        BigDecimal thresholdValue,
-                       Integer durationMinutes,
                        boolean autoStopWhenRecovered) {
         this.sensorType = sensorType;
         this.operator = operator;
         this.thresholdValue = thresholdValue;
-        this.durationMinutes = durationMinutes;
         this.autoStopWhenRecovered = autoStopWhenRecovered;
     }
 

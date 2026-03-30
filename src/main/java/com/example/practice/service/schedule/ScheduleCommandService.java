@@ -1,12 +1,7 @@
-// src/main/java/com/example/practice/service/schedule/ScheduleCommandService.java
 package com.example.practice.service.schedule;
 
 import com.example.practice.common.error.AppException;
-import com.example.practice.dto.schedule.ConditionRuleRequest;
-import com.example.practice.dto.schedule.ScheduleEnabledUpdateRequest;
-import com.example.practice.dto.schedule.ScheduleResponse;
-import com.example.practice.dto.schedule.ScheduleUpsertRequest;
-import com.example.practice.dto.schedule.TimeRuleRequest;
+import com.example.practice.dto.schedule.*;
 import com.example.practice.entity.schedule.AutomationSchedule;
 import com.example.practice.entity.schedule.ConditionScheduleRule;
 import com.example.practice.entity.schedule.ScheduleType;
@@ -17,6 +12,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.DayOfWeek;
+import java.util.List;
+import java.util.stream.Collectors;
+
 @Service
 @Transactional
 @RequiredArgsConstructor
@@ -24,26 +23,79 @@ public class ScheduleCommandService {
 
     private final AutomationScheduleRepository scheduleRepository;
     private final ScheduleValidator scheduleValidator;
-    private final ScheduleMapper scheduleMapper;
 
+    public TimeScheduleResponse createTimeSchedule(CreateTimeScheduleRequest request) {
+        scheduleValidator.validateCreateTimeSchedule(request);
 
-    public ScheduleResponse create(ScheduleUpsertRequest request) {
-        scheduleValidator.validateCreateOrUpdate(request);
+        String daysOfWeek = toDaysOfWeekString(request.getDaysOfWeek());
+
+        boolean duplicated = scheduleRepository.existsDuplicateTimeSchedule(
+                request.getFarmId(),
+                request.getControlSystemType(),
+                ScheduleType.TIME_BASED,
+                request.getExecuteTime(),
+                daysOfWeek,
+                request.getDurationMinutes()
+        );
+
+        if (duplicated) {
+            throw new AppException(HttpStatus.CONFLICT, "동일한 시간 기반 스케줄이 이미 존재합니다.");
+        }
 
         AutomationSchedule schedule = AutomationSchedule.create(
                 request.getFarmId(),
                 request.getName(),
                 request.getControlSystemType(),
-                request.getScheduleType()
+                ScheduleType.TIME_BASED
         );
 
-        applyRule(schedule, request);
+        TimeScheduleRule timeRule = TimeScheduleRule.create(
+                request.getExecuteTime(),
+                request.getDaysOfWeek(),
+                request.getDurationMinutes()
+        );
+        schedule.assignTimeRule(timeRule);
 
-        return ScheduleResponse.from(scheduleRepository.save(schedule));
+        return TimeScheduleResponse.from(scheduleRepository.save(schedule));
     }
 
-    public ScheduleResponse update(Long scheduleId, ScheduleUpsertRequest request) {
-        scheduleValidator.validateCreateOrUpdate(request);
+    public ConditionScheduleResponse createConditionSchedule(CreateConditionScheduleRequest request) {
+        scheduleValidator.validateCreateConditionSchedule(request);
+
+        boolean duplicated = scheduleRepository.existsDuplicateConditionSchedule(
+                request.getFarmId(),
+                request.getControlSystemType(),
+                ScheduleType.CONDITION_BASED,
+                request.getSensorType(),
+                request.getOperator(),
+                request.getThresholdValue(),
+                Boolean.TRUE.equals(request.getAutoStopWhenRecovered())
+        );
+
+        if (duplicated) {
+            throw new AppException(HttpStatus.CONFLICT, "동일한 조건 기반 스케줄이 이미 존재합니다.");
+        }
+
+        AutomationSchedule schedule = AutomationSchedule.create(
+                request.getFarmId(),
+                request.getName(),
+                request.getControlSystemType(),
+                ScheduleType.CONDITION_BASED
+        );
+
+        ConditionScheduleRule conditionRule = ConditionScheduleRule.create(
+                request.getSensorType(),
+                request.getOperator(),
+                request.getThresholdValue(),
+                Boolean.TRUE.equals(request.getAutoStopWhenRecovered())
+        );
+        schedule.assignConditionRule(conditionRule);
+
+        return ConditionScheduleResponse.from(scheduleRepository.save(schedule));
+    }
+
+    public TimeScheduleResponse updateTimeSchedule(Long scheduleId, UpdateTimeScheduleRequest request) {
+        scheduleValidator.validateUpdateTimeSchedule(request);
 
         AutomationSchedule schedule = getSchedule(scheduleId);
 
@@ -51,19 +103,98 @@ public class ScheduleCommandService {
             throw new AppException(HttpStatus.BAD_REQUEST, "farmId는 변경할 수 없습니다.");
         }
 
+        String daysOfWeek = toDaysOfWeekString(request.getDaysOfWeek());
+
+        boolean duplicated = scheduleRepository.existsDuplicateTimeScheduleForUpdate(
+                scheduleId,
+                request.getFarmId(),
+                request.getControlSystemType(),
+                ScheduleType.TIME_BASED,
+                request.getExecuteTime(),
+                daysOfWeek,
+                request.getDurationMinutes()
+        );
+
+        if (duplicated) {
+            throw new AppException(HttpStatus.CONFLICT, "동일한 시간 기반 스케줄이 이미 존재합니다.");
+        }
+
         schedule.update(
                 request.getName(),
                 request.getControlSystemType(),
-                request.getScheduleType()
+                ScheduleType.TIME_BASED
         );
 
-        if (request.getScheduleType() == ScheduleType.TIME_BASED) {
-            updateTimeRule(schedule, request.getTimeRule());
+        schedule.assignConditionRule(null);
+
+        if (schedule.getTimeRule() != null) {
+            schedule.getTimeRule().update(
+                    request.getExecuteTime(),
+                    request.getDaysOfWeek(),
+                    request.getDurationMinutes()
+            );
         } else {
-            updateConditionRule(schedule, request.getConditionRule());
+            TimeScheduleRule timeRule = TimeScheduleRule.create(
+                    request.getExecuteTime(),
+                    request.getDaysOfWeek(),
+                    request.getDurationMinutes()
+            );
+            schedule.assignTimeRule(timeRule);
         }
 
-        return scheduleMapper.toResponse(schedule);
+        return TimeScheduleResponse.from(schedule);
+    }
+
+    public ConditionScheduleResponse updateConditionSchedule(Long scheduleId, UpdateConditionScheduleRequest request) {
+        scheduleValidator.validateUpdateConditionSchedule(request);
+
+        AutomationSchedule schedule = getSchedule(scheduleId);
+
+        if (!schedule.getFarmId().equals(request.getFarmId())) {
+            throw new AppException(HttpStatus.BAD_REQUEST, "farmId는 변경할 수 없습니다.");
+        }
+
+        boolean duplicated = scheduleRepository.existsDuplicateConditionScheduleForUpdate(
+                scheduleId,
+                request.getFarmId(),
+                request.getControlSystemType(),
+                ScheduleType.CONDITION_BASED,
+                request.getSensorType(),
+                request.getOperator(),
+                request.getThresholdValue(),
+                Boolean.TRUE.equals(request.getAutoStopWhenRecovered())
+        );
+
+        if (duplicated) {
+            throw new AppException(HttpStatus.CONFLICT, "동일한 조건 기반 스케줄이 이미 존재합니다.");
+        }
+
+        schedule.update(
+                request.getName(),
+                request.getControlSystemType(),
+                ScheduleType.CONDITION_BASED
+        );
+
+        schedule.assignTimeRule(null);
+
+        if (schedule.getConditionRule() != null) {
+            schedule.getConditionRule().update(
+                    request.getSensorType(),
+                    request.getOperator(),
+                    request.getThresholdValue(),
+                    Boolean.TRUE.equals(request.getAutoStopWhenRecovered())
+            );
+        } else {
+            ConditionScheduleRule conditionRule = ConditionScheduleRule.create(
+                    request.getSensorType(),
+                    request.getOperator(),
+                    request.getThresholdValue(),
+                    Boolean.TRUE.equals(request.getAutoStopWhenRecovered())
+            );
+            schedule.assignConditionRule(conditionRule);
+        }
+
+        return ConditionScheduleResponse.from(schedule);
     }
 
     public ScheduleResponse updateEnabled(Long scheduleId, ScheduleEnabledUpdateRequest request) {
@@ -80,79 +211,14 @@ public class ScheduleCommandService {
         scheduleRepository.delete(schedule);
     }
 
-    private void applyRule(AutomationSchedule schedule, ScheduleUpsertRequest request) {
-        if (request.getScheduleType() == ScheduleType.TIME_BASED) {
-            TimeRuleRequest timeRuleRequest = request.getTimeRule();
-
-            TimeScheduleRule timeRule = TimeScheduleRule.create(
-                    timeRuleRequest.getExecuteTime(),
-                    timeRuleRequest.getDaysOfWeek(),
-                    timeRuleRequest.getDurationMinutes()
-            );
-
-            schedule.assignTimeRule(timeRule);
-            return;
-        }
-
-        ConditionRuleRequest conditionRuleRequest = request.getConditionRule();
-
-        ConditionScheduleRule conditionRule = ConditionScheduleRule.create(
-                conditionRuleRequest.getSensorType(),
-                conditionRuleRequest.getOperator(),
-                conditionRuleRequest.getThresholdValue(),
-                conditionRuleRequest.getDurationMinutes(),
-                Boolean.TRUE.equals(conditionRuleRequest.getAutoStopWhenRecovered())
-        );
-
-        schedule.assignConditionRule(conditionRule);
-    }
-    private void updateTimeRule(AutomationSchedule schedule, TimeRuleRequest request) {
-        schedule.assignConditionRule(null);
-
-        if (schedule.getTimeRule() != null) {
-            schedule.getTimeRule().update(
-                    request.getExecuteTime(),
-                    request.getDaysOfWeek(),
-                    request.getDurationMinutes()
-            );
-            return;
-        }
-
-        TimeScheduleRule timeRule = TimeScheduleRule.create(
-                request.getExecuteTime(),
-                request.getDaysOfWeek(),
-                request.getDurationMinutes()
-        );
-        schedule.assignTimeRule(timeRule);
-    }
-
-    private void updateConditionRule(AutomationSchedule schedule, ConditionRuleRequest request) {
-        schedule.assignTimeRule(null);
-
-        if (schedule.getConditionRule() != null) {
-            schedule.getConditionRule().update(
-                    request.getSensorType(),
-                    request.getOperator(),
-                    request.getThresholdValue(),
-                    request.getDurationMinutes(),
-                    Boolean.TRUE.equals(request.getAutoStopWhenRecovered())
-            );
-            return;
-        }
-
-        ConditionScheduleRule conditionRule = ConditionScheduleRule.create(
-                request.getSensorType(),
-                request.getOperator(),
-                request.getThresholdValue(),
-                request.getDurationMinutes(),
-                Boolean.TRUE.equals(request.getAutoStopWhenRecovered())
-        );
-        schedule.assignConditionRule(conditionRule);
-    }
-
-
     private AutomationSchedule getSchedule(Long scheduleId) {
         return scheduleRepository.findByScheduleId(scheduleId)
                 .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, "스케줄을 찾을 수 없습니다."));
+    }
+
+    private String toDaysOfWeekString(List<DayOfWeek> daysOfWeek) {
+        return daysOfWeek.stream()
+                .map(DayOfWeek::name)
+                .collect(Collectors.joining(","));
     }
 }

@@ -1,11 +1,16 @@
-// src/main/java/com/example/practice/controller/schedule/ScheduleController.java
 package com.example.practice.controller.schedule;
 
 import com.example.practice.common.response.ApiResponse;
+import com.example.practice.dto.schedule.ConditionScheduleResponse;
+import com.example.practice.dto.schedule.CreateConditionScheduleRequest;
+import com.example.practice.dto.schedule.CreateTimeScheduleRequest;
 import com.example.practice.dto.schedule.ScheduleEnabledUpdateRequest;
 import com.example.practice.dto.schedule.ScheduleExecutionHistoryResponse;
+import com.example.practice.dto.schedule.ScheduleListItemResponse;
 import com.example.practice.dto.schedule.ScheduleResponse;
-import com.example.practice.dto.schedule.ScheduleUpsertRequest;
+import com.example.practice.dto.schedule.TimeScheduleResponse;
+import com.example.practice.dto.schedule.UpdateConditionScheduleRequest;
+import com.example.practice.dto.schedule.UpdateTimeScheduleRequest;
 import com.example.practice.service.schedule.ScheduleCommandService;
 import com.example.practice.service.schedule.ScheduleQueryService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -25,37 +30,50 @@ public class ScheduleController {
     private final ScheduleCommandService scheduleCommandService;
     private final ScheduleQueryService scheduleQueryService;
 
-    @Operation(summary = "스케줄 등록")
-    @PostMapping
+    @Operation(summary = "시간 기반 스케줄 등록")
+    @PostMapping("/time-based")
     @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<ScheduleResponse> create(@RequestBody ScheduleUpsertRequest request) {
-        return ApiResponse.success(scheduleCommandService.create(request));
+    public ApiResponse<TimeScheduleResponse> createTimeSchedule(@RequestBody CreateTimeScheduleRequest request) {
+        return ApiResponse.success(scheduleCommandService.createTimeSchedule(request));
+    }
+
+    @Operation(summary = "조건 기반 스케줄 등록")
+    @PostMapping("/condition-based")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ApiResponse<ConditionScheduleResponse> createConditionSchedule(@RequestBody CreateConditionScheduleRequest request) {
+        return ApiResponse.success(scheduleCommandService.createConditionSchedule(request));
+    }
+
+    @Operation(summary = "시간 기반 스케줄 수정")
+    @PutMapping("/{scheduleId}/time-based")
+    public ApiResponse<TimeScheduleResponse> updateTimeSchedule(@PathVariable Long scheduleId,
+                                                                @RequestBody UpdateTimeScheduleRequest request) {
+        return ApiResponse.success(scheduleCommandService.updateTimeSchedule(scheduleId, request));
+    }
+
+    @Operation(summary = "조건 기반 스케줄 수정")
+    @PutMapping("/{scheduleId}/condition-based")
+    public ApiResponse<ConditionScheduleResponse> updateConditionSchedule(@PathVariable Long scheduleId,
+                                                                          @RequestBody UpdateConditionScheduleRequest request) {
+        return ApiResponse.success(scheduleCommandService.updateConditionSchedule(scheduleId, request));
     }
 
     @Operation(summary = "농장별 스케줄 목록 조회")
     @GetMapping
-    public ApiResponse<List<ScheduleResponse>> getByFarmId(@RequestParam Long farmId) {
+    public ApiResponse<List<ScheduleListItemResponse>> getByFarmId(@RequestParam Long farmId) {
         return ApiResponse.success(scheduleQueryService.getByFarmId(farmId));
     }
 
-    @Operation(summary = "스케줄 상세 조회")
-    @GetMapping("/{scheduleId}")
-    public ApiResponse<ScheduleResponse> getById(@PathVariable Long scheduleId) {
-        return ApiResponse.success(scheduleQueryService.getById(scheduleId));
+    @Operation(summary = "시간 기반 스케줄 상세 조회")
+    @GetMapping("/{scheduleId}/time-based")
+    public ApiResponse<TimeScheduleResponse> getTimeScheduleById(@PathVariable Long scheduleId) {
+        return ApiResponse.success(scheduleQueryService.getTimeScheduleById(scheduleId));
     }
 
-    @Operation(summary = "스케줄 수정")
-    @PutMapping("/{scheduleId}")
-    public ApiResponse<ScheduleResponse> update(@PathVariable Long scheduleId,
-                                                @RequestBody ScheduleUpsertRequest request) {
-        return ApiResponse.success(scheduleCommandService.update(scheduleId, request));
-    }
-
-    @Operation(summary = "스케줄 활성화 여부 변경")
-    @PatchMapping("/{scheduleId}/enabled")
-    public ApiResponse<ScheduleResponse> updateEnabled(@PathVariable Long scheduleId,
-                                                       @RequestBody ScheduleEnabledUpdateRequest request) {
-        return ApiResponse.success(scheduleCommandService.updateEnabled(scheduleId, request));
+    @Operation(summary = "조건 기반 스케줄 상세 조회")
+    @GetMapping("/{scheduleId}/condition-based")
+    public ApiResponse<ConditionScheduleResponse> getConditionScheduleById(@PathVariable Long scheduleId) {
+        return ApiResponse.success(scheduleQueryService.getConditionScheduleById(scheduleId));
     }
 
     @Operation(summary = "스케줄 삭제")
@@ -64,6 +82,13 @@ public class ScheduleController {
     public ApiResponse<Void> delete(@PathVariable Long scheduleId) {
         scheduleCommandService.delete(scheduleId);
         return ApiResponse.success();
+    }
+
+    @Operation(summary = "스케줄 활성화 여부 변경")
+    @PatchMapping("/{scheduleId}/enabled")
+    public ApiResponse<ScheduleResponse> updateEnabled(@PathVariable Long scheduleId,
+                                                       @RequestBody ScheduleEnabledUpdateRequest request) {
+        return ApiResponse.success(scheduleCommandService.updateEnabled(scheduleId, request));
     }
 
     @Operation(summary = "농장 전체 스케줄 실행 이력 조회")
