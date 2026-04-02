@@ -60,6 +60,7 @@ out/
 
 ### VS Code ###
 .vscode/
+.DS_Store
 src/main/resources/application.properties
 src/main/resources/application-local.properties
 .env

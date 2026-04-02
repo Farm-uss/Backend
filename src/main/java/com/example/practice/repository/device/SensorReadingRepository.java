@@ -11,6 +11,7 @@ import org.springframework.data.repository.query.Param;
 import java.time.OffsetDateTime;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 
 public interface SensorReadingRepository extends JpaRepository<SensorReading, Long> {
 
@@ -50,4 +51,19 @@ public interface SensorReadingRepository extends JpaRepository<SensorReading, Lo
             @Param("from") OffsetDateTime from,
             @Param("to") OffsetDateTime to
     );
+    @Query(value = """
+        select sr.value
+        from sensor_reading sr
+        join sensor s on sr.sensor_id = s.sensor_id
+        join device d on s.device_id = d.device_id
+        where d.farm_id = :farmId
+          and s.sensor_type = :sensorType
+        order by sr.measured_at desc
+        limit 1
+        """, nativeQuery = true)
+    Optional<BigDecimal> findLatestValueByFarmIdAndSensorType(
+            @Param("farmId") Long farmId,
+            @Param("sensorType") String sensorType
+    );
+
 }

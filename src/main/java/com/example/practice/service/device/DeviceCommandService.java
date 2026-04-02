@@ -3,6 +3,7 @@ package com.example.practice.service.device;
 import com.example.practice.dto.Device.CommandRequest;
 import com.example.practice.dto.Device.CommandResponse;
 import com.example.practice.entity.device.CommandStatus;
+import com.example.practice.entity.device.CommandType;
 import com.example.practice.entity.device.DeviceCommand;
 import com.example.practice.entity.device.Device;
 import com.example.practice.repository.device.DeviceCommandRepository;
@@ -30,16 +31,21 @@ public class DeviceCommandService {
      * POST /api/led
      */
     @Transactional
-    public CommandResponse createCommand(CommandRequest request) {
+    public CommandResponse createCommand(CommandType commandType) {
         Device device = deviceRepository.findAll().stream()
                 .findFirst()
                 .orElseThrow(() -> new IllegalStateException("등록된 디바이스가 없습니다."));
 
-        DeviceCommand cmd = DeviceCommand.create(device.getDeviceId(), request.getCommandType());
+        DeviceCommand cmd = DeviceCommand.create(device.getDeviceId(), commandType);
         commandRepository.save(cmd);
 
-        log.info("[LED] deviceId={} 명령 등록: {}", device.getDeviceId(), request.getCommandType());
+        log.info("[LED] deviceId={} 명령 등록: {}", device.getDeviceId(), commandType);
         return CommandResponse.from(cmd);
+    }
+
+    @Transactional
+    public CommandResponse createCommand(CommandRequest request) {
+        return createCommand(request.getCommandType());
     }
 
     /**

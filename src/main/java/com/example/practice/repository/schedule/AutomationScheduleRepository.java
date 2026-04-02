@@ -23,6 +23,11 @@ public interface AutomationScheduleRepository extends JpaRepository<AutomationSc
     @EntityGraph(attributePaths = {"timeRule", "conditionRule"})
     Optional<AutomationSchedule> findByScheduleId(Long scheduleId);
 
+    @EntityGraph(attributePaths = {"timeRule", "conditionRule"})
+    List<AutomationSchedule> findAllByEnabledTrueAndScheduleTypeOrderByCreatedAtAsc(
+            ScheduleType scheduleType
+    );
+
     @Query("""
             select case when count(s) > 0 then true else false end
             from AutomationSchedule s

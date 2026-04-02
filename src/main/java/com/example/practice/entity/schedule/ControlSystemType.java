@@ -2,6 +2,7 @@
 package com.example.practice.entity.schedule;
 
 public enum ControlSystemType {
+    CAMERA("카메라"),
     IRRIGATION("관수 시스템"),
     LIGHTING("조명 시스템"),
     VENTILATION("환기 시스템"),
