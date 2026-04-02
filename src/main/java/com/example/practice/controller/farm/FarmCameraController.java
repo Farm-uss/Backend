@@ -1,6 +1,7 @@
 package com.example.practice.controller.farm;
 
 import com.example.practice.common.config.TokenAuthFilter;
+import com.example.practice.dto.farm.CameraCaptureResponse;
 import com.example.practice.dto.farm.CameraStreamResponse;
 import com.example.practice.service.farm.FarmCameraService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -10,6 +11,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -29,5 +32,15 @@ public class FarmCameraController {
             @AuthenticationPrincipal TokenAuthFilter.UserPrincipal user
     ) {
         return farmCameraService.getFarmCameraStream(farmId, user.id());
+    }
+
+    @Operation(summary = "카메라 캡처", description = "farm에 연결된 카메라에서 현재 이미지를 캡처해 저장합니다.")
+    @PostMapping("/{farmId}/camera/capture")
+    public CameraCaptureResponse capture(
+            @PathVariable Long farmId,
+            @RequestParam(required = false) Long cameraId,
+            @AuthenticationPrincipal TokenAuthFilter.UserPrincipal user
+    ) {
+        return farmCameraService.captureFarmCamera(farmId, cameraId, user.id());
     }
 }
