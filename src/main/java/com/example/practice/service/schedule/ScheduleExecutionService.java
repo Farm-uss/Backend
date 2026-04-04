@@ -161,6 +161,11 @@ public class ScheduleExecutionService {
 
     private void executeOnCommand(AutomationSchedule schedule) {
         switch (schedule.getControlSystemType()) {
+            case CAMERA -> {
+                // TODO: 카메라 스케줄 실행 흐름이 연결되면 캡처 서비스와 연동
+                throw new UnsupportedOperationException("카메라 실행 기능이 아직 연결되지 않았습니다.");
+            }
+
             case LIGHTING -> deviceCommandService.createCommand(CommandType.LED_ON);
 
             case IRRIGATION -> {
@@ -182,6 +187,11 @@ public class ScheduleExecutionService {
 
     private void executeOffCommand(AutomationSchedule schedule) {
         switch (schedule.getControlSystemType()) {
+            case CAMERA -> {
+                // TODO: 카메라 자동 복구/중지 흐름이 정의되면 연결
+                throw new UnsupportedOperationException("카메라 중지 기능이 아직 연결되지 않았습니다.");
+            }
+
             case LIGHTING -> deviceCommandService.createCommand(CommandType.LED_OFF);
 
             case IRRIGATION -> {
@@ -205,6 +215,7 @@ public class ScheduleExecutionService {
         String prefix = timeBased ? "시간 기반" : "조건 기반";
 
         return switch (schedule.getControlSystemType()) {
+            case CAMERA -> prefix + " 카메라 스케줄 실행 성공";
             case LIGHTING -> prefix + " 조명 스케줄 실행 성공";
             case IRRIGATION -> prefix + " 관수 스케줄 실행 성공";
             case VENTILATION -> prefix + " 환기 스케줄 실행 성공";
@@ -214,6 +225,7 @@ public class ScheduleExecutionService {
 
     private String buildRecoveredMessage(AutomationSchedule schedule) {
         return switch (schedule.getControlSystemType()) {
+            case CAMERA -> "조건 회복으로 카메라 작업 중지";
             case LIGHTING -> "조건 회복으로 조명 OFF 명령 전송";
             case IRRIGATION -> "조건 회복으로 관수 중지 명령 전송";
             case VENTILATION -> "조건 회복으로 환기 중지 명령 전송";
