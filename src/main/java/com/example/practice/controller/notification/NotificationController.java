@@ -1,52 +1,71 @@
 package com.example.practice.controller.notification;
 
+import com.example.practice.common.config.TokenAuthFilter;
 import com.example.practice.common.response.ApiResponse;
 import com.example.practice.dto.notification.NotificationResponse;
 import com.example.practice.dto.notification.NotificationUnreadCountResponse;
 import com.example.practice.service.notification.NotificationService;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.web.PageableDefault;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/notifications")
 @RequiredArgsConstructor
+@SecurityRequirement(name = "JWT")
 public class NotificationController {
 
     private final NotificationService notificationService;
 
-    // GET /api/notifications - 내 알림 목록
     @GetMapping
-    public ApiResponse<Page<NotificationResponse>> getMyNotifications(
-            @RequestAttribute("userId") Long userId,
-            @PageableDefault(size = 20, sort = "createdAt",
-                    direction = Sort.Direction.DESC) Pageable pageable) {
-        return ApiResponse.success(notificationService.getMyNotifications(userId, pageable));
+    public ResponseEntity<Page<NotificationResponse>> getMyNotifications(
+            @AuthenticationPrincipal TokenAuthFilter.UserPrincipal principal,
+            Pageable pageable) {
+        return ResponseEntity.ok(notificationService.getMyNotifications(principal.id(), pageable));
     }
 
-    // GET /api/notifications/unread-count - 읽지 않은 알림 수 (뱃지용)
+    @GetMapping("/count")
+    public ResponseEntity<Map<String, Long>> getNotificationCount(
+            @AuthenticationPrincipal TokenAuthFilter.UserPrincipal principal) {
+        long total = notificationService.getTotalCount(principal.id());
+        long unread = notificationService.getUnreadCountValue(principal.id()); // ← 직접 long
+        return ResponseEntity.ok(Map.of(
+                "total", total,
+                "unread", unread
+        ));
+    }
+
+    @GetMapping("/recent-count")
+    public ResponseEntity<Map<String, Long>> getRecentCount(
+            @AuthenticationPrincipal TokenAuthFilter.UserPrincipal principal) {
+        long recentCount = notificationService.getRecentCount(principal.id());
+        return ResponseEntity.ok(Map.of("recentCount", recentCount));
+    }
+
     @GetMapping("/unread-count")
-    public ApiResponse<NotificationUnreadCountResponse> getUnreadCount(
-            @RequestAttribute("userId") Long userId) {
-        return ApiResponse.success(notificationService.getUnreadCount(userId));
+    public ResponseEntity<NotificationUnreadCountResponse> getUnreadCount(
+            @AuthenticationPrincipal TokenAuthFilter.UserPrincipal principal) {
+        return ResponseEntity.ok(notificationService.getUnreadCount(principal.id()));
     }
 
-    // PATCH /api/notifications/{id}/read - 단건 읽음 처리
-    @PatchMapping("/{id}/read")
-    public ApiResponse<Void> markAsRead(
-            @PathVariable Long id,
-            @RequestAttribute("userId") Long userId) {
-        notificationService.markAsRead(id, userId);
-        return ApiResponse.success();
+    @PatchMapping("/{notificationId}/read")
+    public ResponseEntity<Void> markAsRead(
+            @PathVariable Long notificationId,
+            @AuthenticationPrincipal TokenAuthFilter.UserPrincipal principal) {
+        notificationService.markAsRead(notificationId, principal.id());
+        return ResponseEntity.noContent().build();
     }
 
-    // PATCH /api/notifications/read-all - 전체 읽음 처리
     @PatchMapping("/read-all")
-    public ApiResponse<Void> markAllAsRead(@RequestAttribute("userId") Long userId) {
-        notificationService.markAllAsRead(userId);
-        return ApiResponse.success();
+    public ResponseEntity<Void> markAllAsRead(
+            @AuthenticationPrincipal TokenAuthFilter.UserPrincipal principal) {
+        notificationService.markAllAsRead(principal.id());
+        return ResponseEntity.noContent().build();
     }
 }
