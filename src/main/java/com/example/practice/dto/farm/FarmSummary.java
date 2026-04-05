@@ -31,4 +31,6 @@ public class FarmSummary {
     private Long cropsId;
     private FarmRole role;      // 내 역할
     private OffsetDateTime createdDate; // 생성 날짜
+
+    private Long deviceId;
 }

@@ -3,11 +3,13 @@ package com.example.practice.service.farm;
 import com.example.practice.dto.farm.*;
 import com.example.practice.entity.crops.Crops;
 import com.example.practice.entity.crops.CropGrowthStandard;
+import com.example.practice.entity.device.Device;
 import com.example.practice.entity.farm.*;
 import com.example.practice.entity.location.Location;
 import com.example.practice.exception.FarmException;
 import com.example.practice.repository.crops.CropGrowthStandardRepository;
 import com.example.practice.repository.crops.CropsRepository;
+import com.example.practice.repository.device.DeviceRepository;
 import com.example.practice.repository.farm.FarmMemberRepository;
 import com.example.practice.repository.farm.FarmRepository;
 import com.example.practice.repository.location.LocationRepository;
@@ -39,6 +41,7 @@ public class FarmService {
     private final CropsRepository cropsRepo;  // SecurityContext에서 userId 가져옴 가정
     private final CropGrowthStandardRepository cropGrowthStandardRepository;
     private final AwsS3Service awsS3Service;
+    private final DeviceRepository deviceRepository;
 
 
     @Value("${file.default-img:}")
@@ -111,6 +114,10 @@ public class FarmService {
                 .map(fm -> {
                     Farm farm = fm.getFarm();  // fm.getFarm() 안전
 
+                    Long deviceId = deviceRepository.findByFarmId(farm.getId())
+                            .map(Device::getDeviceId)
+                            .orElse(null);
+
                     // OWNER 이름 (기존 메서드 + userRepo)
                     String ownerName = farmMemberRepo.findByFarmIdAndRole(farm.getId(), FarmRole.OWNER)
                             .filter(Objects::nonNull)  // true 경고 괜찮음
@@ -178,6 +185,7 @@ public class FarmService {
                             .role(fm.getRole())
                             .img(farm.getImagePath())
                             .createdDate(farm.getCreatedAt())
+                            .deviceId(deviceId)
                             .build();
                 })
                 .collect(Collectors.toList());  // ← 명시적 타입 변환
