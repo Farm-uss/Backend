@@ -14,6 +14,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.example.practice.service.notification.AlertCheckService;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -31,6 +32,7 @@ public class EnvDataService {
     private final DeviceService deviceService;
     private final SensorService sensorService;
     private final SensorReadingService sensorReadingService;
+    private final AlertCheckService alertCheckService;
 
     @Transactional
     public EnvDataResponse save(EnvDataSaveRequest request) {
@@ -59,6 +61,8 @@ public class EnvDataService {
         // 3. lastSeenAt 갱신
         device.refreshLastSeenAt(measuredAt);
 
+
+
         return EnvDataResponse.from(envData);
     }
 
@@ -70,6 +74,12 @@ public class EnvDataService {
         return envDataRepository
                 .findAllByDevice_DeviceIdOrderByCreatedAtDesc(deviceId, pageable)
                 .map(EnvDataResponse::from);
+    }
+
+    public Long getLatestEnvDataIdByDeviceId(Long deviceId) {
+        return envDataRepository.findTopByDevice_DeviceIdOrderByCreatedAtDesc(deviceId)
+                .map(EnvData::getEnvDataId)
+                .orElseThrow(() -> new EnvDataNotFoundException(deviceId));
     }
 
     // ─── private helpers ─────────────────────────────────────────────
