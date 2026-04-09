@@ -220,7 +220,7 @@ public class ScheduleExecutionService {
             case IRRIGATION -> prefix + " 관수 스케줄 실행 성공";
             case VENTILATION -> prefix + " 환기 스케줄 실행 성공";
             case HEATING -> prefix + " 난방 스케줄 실행 성공";
-            case CAMERA -> prefix + " 카메라 스케줄 실행";
+
         };
     }
 
@@ -231,7 +231,7 @@ public class ScheduleExecutionService {
             case IRRIGATION -> "조건 회복으로 관수 중지 명령 전송";
             case VENTILATION -> "조건 회복으로 환기 중지 명령 전송";
             case HEATING -> "조건 회복으로 난방 중지 명령 전송";
-            case CAMERA -> "카메라 제어는 자동 종료를 지원하지 않습니다.";
+
 
         };
     }
