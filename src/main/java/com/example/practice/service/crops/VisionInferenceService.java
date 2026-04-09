@@ -95,6 +95,10 @@ public class VisionInferenceService {
             Long cameraId,
             OffsetDateTime measuredAt
     ) {
+        Crops crop = cropsRepository.findByFarmIdAndCropsIdWithGrowthStandard(farmId, cropsId)
+                .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, "crops not found in farm"));
+        Integer cropCode = parseCropCode(crop);
+
         PreparedInferenceContext prepared = prepareInference(
                 farmId,
                 cropsId,
@@ -102,7 +106,7 @@ public class VisionInferenceService {
                 image,
                 cameraId,
                 TASK_DISEASE_CLASSIFICATION,
-                null,
+                cropCode,
                 measuredAt
         );
         VisionInference inference = saveVisionInference(prepared.uploadedImage(), prepared.aiResponse());
@@ -658,8 +662,19 @@ public class VisionInferenceService {
     }
 
     private void validateTaskInputs(String taskType, Integer cropCode) {
-        if (TASK_GROWTH_MEASUREMENT.equals(taskType) && cropCode == null) {
-            throw new AppException(HttpStatus.BAD_REQUEST, "cropCode is required for GROWTH_MEASUREMENT");
+        if ((TASK_GROWTH_MEASUREMENT.equals(taskType) || TASK_DISEASE_CLASSIFICATION.equals(taskType)) && cropCode == null) {
+            throw new AppException(HttpStatus.BAD_REQUEST, "cropCode is required for " + taskType);
+        }
+    }
+
+    private Integer parseCropCode(Crops crop) {
+        if (crop == null || crop.getCropCode() == null || crop.getCropCode().isBlank()) {
+            throw new AppException(HttpStatus.BAD_REQUEST, "cropCode is not configured for crop");
+        }
+        try {
+            return Integer.valueOf(crop.getCropCode().trim());
+        } catch (NumberFormatException e) {
+            throw new AppException(HttpStatus.BAD_REQUEST, "invalid cropCode configured for crop");
         }
     }
 

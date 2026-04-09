@@ -28,7 +28,9 @@ services:
       - ${LOCAL_AI_APP_PATH:-/tmp/kimphys_api_a/app.py}:/workspace/app.py:ro
       - ${LOCAL_AI_MODELS_PATH:-/tmp/kimphys_api_a/models}:/workspace/models:ro
     command: >
-      bash -lc "pip uninstall -y opencv-python >/dev/null 2>&1 || true; pip install -q ujson fastapi uvicorn python-multipart ultralytics opencv-python-headless &&
+      bash -lc "apt-get update && apt-get install -y --no-install-recommends libgl1 libglib2.0-0 libxcb1 &&
+      rm -rf /var/lib/apt/lists/* &&
+      pip uninstall -y opencv-python >/dev/null 2>&1 || true; pip install -q ujson fastapi uvicorn python-multipart ultralytics opencv-python-headless &&
       uvicorn app:app --host 0.0.0.0 --port 8001 --app-dir /workspace"
 
 volumes:
