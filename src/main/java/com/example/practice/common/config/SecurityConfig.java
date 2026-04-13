@@ -70,6 +70,7 @@ public class SecurityConfig {
                                 .requestMatchers("/api/v1/crops-recommend/**").permitAll()
 
 
+
                 // 나머지는 JWT 인증
                         .anyRequest().authenticated()
                 )
