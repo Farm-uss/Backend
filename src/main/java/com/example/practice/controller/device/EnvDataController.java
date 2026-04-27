@@ -13,6 +13,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 
@@ -58,5 +59,10 @@ public class EnvDataController {
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC)
             Pageable pageable) {
         return ApiResponse.success(envDataService.getPageByDeviceId(deviceId, pageable));
+    }
+
+    @GetMapping("/latest/{deviceId}")
+    public ResponseEntity<Long> getLatestEnvDataId(@PathVariable Long deviceId) {
+        return ResponseEntity.ok(envDataService.getLatestEnvDataIdByDeviceId(deviceId));
     }
 }

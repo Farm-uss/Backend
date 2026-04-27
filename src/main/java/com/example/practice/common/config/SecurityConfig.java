@@ -1,6 +1,10 @@
 package com.example.practice.common.config;
 
 import com.example.practice.common.security.JwtProvider;
+import io.swagger.v3.oas.models.Components;
+import io.swagger.v3.oas.models.OpenAPI;
+import io.swagger.v3.oas.models.security.SecurityRequirement;
+import io.swagger.v3.oas.models.security.SecurityScheme;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -63,6 +67,9 @@ public class SecurityConfig {
                         .requestMatchers("/api/env-data/**").permitAll()
                         .requestMatchers("/api/sensor-readings/**").permitAll()
                         .requestMatchers("/api/sensors/**").permitAll()
+                                .requestMatchers("/api/v1/crops-recommend/**").permitAll()
+
+
 
                 // 나머지는 JWT 인증
                         .anyRequest().authenticated()
@@ -107,4 +114,10 @@ public class SecurityConfig {
         source.registerCorsConfiguration("/**", config);
         return source;
     }
+
+
+
+
+
+
 }
