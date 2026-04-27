@@ -29,6 +29,7 @@ public class AlertCheckService {
     private final CropEnvironmentStandardRepository standardRepository;
     private final FarmMemberRepository farmMemberRepository;
     private final NotificationRepository notificationRepository;
+    private final WebPushService webPushService ;
 
     /**
      * EnvData 저장 직후 호출.
@@ -111,8 +112,15 @@ public class AlertCheckService {
         // 5. 알림 일괄 저장
         if (!notifications.isEmpty()) {
             notificationRepository.saveAll(notifications);
-            log.info("[AlertCheck] farmId={}, cropCode={} → {}건 알림 생성",
-                    farmId, cropCode, notifications.size());
+
+            // 푸시 알림 발송
+            notifications.forEach(n ->
+                    webPushService.sendToUser(
+                            n.getUserId(),
+                            "농장 환경 알림",
+                            n.getMessage()
+                    )
+            );
         }
     }
 
