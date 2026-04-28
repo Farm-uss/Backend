@@ -182,16 +182,16 @@ public class GddSummaryService {
             Long cropsId,
             Long userId,
             GrowthMetricType metric,
-            LocalDate from,
-            LocalDate to,
             Integer windowDays
     ) {
-        getAccessibleCrop(farmId, cropsId, userId);
-
-        if (from.isAfter(to)) {
-            throw new AppException(HttpStatus.BAD_REQUEST, "from must be less than or equal to to");
+        Crops crop = getAccessibleCrop(farmId, cropsId, userId);
+        if (crop.getPlantingDate() == null) {
+            throw new AppException(HttpStatus.BAD_REQUEST, "plantingDate is required");
         }
         validateWindowDays(windowDays);
+
+        LocalDate from = crop.getPlantingDate();
+        LocalDate to = LocalDate.now();
 
         OffsetDateTime fromAt = from.atStartOfDay().atOffset(OffsetDateTime.now().getOffset());
         OffsetDateTime toExclusive = to.plusDays(1).atStartOfDay().atOffset(OffsetDateTime.now().getOffset());
