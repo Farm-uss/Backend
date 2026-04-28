@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -17,51 +18,71 @@ public class ChatbotService {
     private final OpenAiProperties openAiProperties;
 
     public ChatResponse ask(String message) {
-        Map<String, Object> requestBody = Map.of(
-                "model", openAiProperties.getModel(),
-                "input", message
-        );
+        if (message == null || message.isBlank()) {
+            return ChatResponse.builder()
+                    .answer("메시지를 입력해주세요.")
+                    .build();
+        }
+
+        String model = openAiProperties.getModel();
+        if (model == null || model.isBlank()) {
+            model = "gpt-5-mini";
+        }
+
+        Map<String, Object> requestBody = new HashMap<>();
+        requestBody.put("model", model);
+        requestBody.put("input", message);
 
         Map<String, Object> response = openAiWebClient.post()
-                .uri("/v1/responses")
+                .uri("https://api.openai.com/v1/responses")
                 .bodyValue(requestBody)
                 .retrieve()
                 .bodyToMono(Map.class)
                 .block();
 
-        String answer = extractAnswer(response);
+        String answer = extractOutputText(response);
 
         return ChatResponse.builder()
-                .answer(answer)
+                .answer(answer != null ? answer : "응답을 생성하지 못했습니다.")
                 .build();
     }
 
-    private String extractAnswer(Map<String, Object> response) {
+    private String extractOutputText(Map<String, Object> response) {
         if (response == null) {
             return null;
         }
 
-        Object outputObj = response.get("output");
-        if (!(outputObj instanceof List<?> outputList) || outputList.isEmpty()) {
-            return null;
+        Object output = response.get("output");
+        if (!(output instanceof List<?> outputList)) {
+            Object fallback = response.get("output_text");
+            return fallback instanceof String ? (String) fallback : null;
         }
 
-        Object firstOutput = outputList.get(0);
-        if (!(firstOutput instanceof Map<?, ?> outputMap)) {
-            return null;
+        for (Object outputItem : outputList) {
+            if (!(outputItem instanceof Map<?, ?> outputMap)) {
+                continue;
+            }
+
+            Object content = outputMap.get("content");
+            if (!(content instanceof List<?> contentList)) {
+                continue;
+            }
+
+            for (Object contentItem : contentList) {
+                if (!(contentItem instanceof Map<?, ?> contentMap)) {
+                    continue;
+                }
+
+                Object type = contentMap.get("type");
+                if ("output_text".equals(type)) {
+                    Object text = contentMap.get("text");
+                    if (text instanceof String textValue) {
+                        return textValue;
+                    }
+                }
+            }
         }
 
-        Object contentObj = outputMap.get("content");
-        if (!(contentObj instanceof List<?> contentList) || contentList.isEmpty()) {
-            return null;
-        }
-
-        Object firstContent = contentList.get(0);
-        if (!(firstContent instanceof Map<?, ?> contentMap)) {
-            return null;
-        }
-
-        Object textObj = contentMap.get("text");
-        return textObj instanceof String ? (String) textObj : null;
+        return null;
     }
 }
