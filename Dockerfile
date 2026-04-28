@@ -1,5 +1,5 @@
-# 1. 자바 17 환경 사용
-FROM eclipse-temurin:17-jdk-jammy
+# 1. 애플리케이션이 Java 21로 빌드되므로 런타임도 같은 메이저 버전을 사용
+FROM eclipse-temurin:21-jre-jammy
 
 # 2. 빌드된 jar 파일의 위치를 변수로 지정
 ARG JAR_FILE=build/libs/*.jar
