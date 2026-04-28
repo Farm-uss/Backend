@@ -41,6 +41,7 @@ public class Sensor extends BaseTimeEntity {
     @JoinColumn(name = "device_id", nullable = false)
     private Device device;
 
+    @Builder.Default
     @OneToMany(mappedBy = "sensor", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<SensorReading> readings = new ArrayList<>();
 

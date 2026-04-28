@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -117,6 +118,7 @@ public class AlertCheckService {
 
     // ─── private helper ──────────────────────────────────────────────
 
+    // AlertCheckService - checkValue 메서드 수정
     private void checkValue(BigDecimal value,
                             Double min, Double max,
                             String cropName, String sensorName, String unit,
@@ -128,14 +130,32 @@ public class AlertCheckService {
         double val = value.doubleValue();
 
         if (min != null && val < min) {
+            // 직전 알림과 같은 타입이면 생성 안 함
+            if (isDuplicate(farmId, lowType)) return;
+
             String msg = String.format("[%s] %s가 %.1f%s로 최솟값(%.1f%s) 미만입니다.",
                     cropName, sensorName, val, unit, min, unit);
             userIds.forEach(uid -> result.add(Notification.create(uid, farmId, msg, lowType)));
 
         } else if (max != null && val > max) {
+            // 직전 알림과 같은 타입이면 생성 안 함
+            if (isDuplicate(farmId, highType)) return;
+
             String msg = String.format("[%s] %s가 %.1f%s로 최댓값(%.1f%s)을 초과했습니다.",
                     cropName, sensorName, val, unit, max, unit);
             userIds.forEach(uid -> result.add(Notification.create(uid, farmId, msg, highType)));
         }
+    }
+
+    // 중복 체크 메서드 추가
+    private boolean isDuplicate(Long farmId, NotificationType type) {
+        return notificationRepository
+                .findTopByFarmIdAndTypeOrderByCreatedAtDesc(farmId, type)
+                .map(last -> {
+                    // 마지막 알림이 10분 이내에 같은 타입으로 생성됐으면 중복
+                    return last.getCreatedAt()
+                            .isAfter(OffsetDateTime.now().minusMinutes(10));
+                })
+                .orElse(false);
     }
 }

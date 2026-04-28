@@ -28,13 +28,20 @@ public class DeviceService {
 
     @Transactional
     public DeviceResponse register(DeviceRegisterRequest request) {
-        if (deviceRepository.existsByDeviceUuid(request.getDeviceUuid())) {
-            throw new BusinessException(ErrorCode.DEVICE_UUID_DUPLICATE,
-                    "uuid: " + request.getDeviceUuid());
-        }
-        Device device = deviceRepository.save(Device.create(request.getDeviceUuid(), request.getName(), request.getFarmId()));
-        Camera camera = createCameraIfRequested(device, request);
-        return DeviceResponse.from(device, camera);
+        // UUID가 이미 존재하면 농장 이전만 처리 (카메라 생성 X)
+        return deviceRepository.findByDeviceUuid(request.getDeviceUuid())
+                .map(existing -> {
+                    existing.moveFarm(request.getFarmId());
+                    return DeviceResponse.from(existing);
+                })
+                .orElseGet(() -> {
+                    // 신규 등록일 때만 카메라 생성
+                    Device device = deviceRepository.save(
+                            Device.create(request.getDeviceUuid(), request.getName(), request.getFarmId())
+                    );
+                    Camera camera = createCameraIfRequested(device, request);
+                    return DeviceResponse.from(device, camera);
+                });
     }
 
     public DeviceResponse getById(Long deviceId) {
@@ -54,13 +61,9 @@ public class DeviceService {
         return DeviceResponse.from(device);
     }
 
-    /**
-     * 데이터 수신 시마다 호출 - lastSeenAt 갱신
-     */
     @Transactional
     public void refreshLastSeenAt(Long deviceId) {
-        Device device = findById(deviceId);
-        device.refreshLastSeenAt(OffsetDateTime.now());
+        findById(deviceId).refreshLastSeenAt(OffsetDateTime.now());
     }
 
     @Transactional
@@ -68,12 +71,14 @@ public class DeviceService {
         deviceRepository.delete(findById(deviceId));
     }
 
-    // ─── 패키지 내부 공유 메서드 ──────────────────────────────────────
+    // ─── 패키지 공유 메서드 ───────────────────────────────────────────
 
     public Device findById(Long deviceId) {
         return deviceRepository.findById(deviceId)
                 .orElseThrow(() -> new DeviceNotFoundException(deviceId));
     }
+
+    // ─── private ─────────────────────────────────────────────────────
 
     private Camera createCameraIfRequested(Device device, DeviceRegisterRequest request) {
         DeviceRegisterRequest.CameraRegisterRequest cameraRequest = request.getCamera();

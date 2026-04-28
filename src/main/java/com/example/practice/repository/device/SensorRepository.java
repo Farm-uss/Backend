@@ -17,6 +17,8 @@ public interface SensorRepository extends JpaRepository<Sensor, Long> {
 
     boolean existsByDevice_DeviceIdAndSensorType(Long deviceId, SensorType sensorType);
 
+
+
     /**
      * 특정 장치에 등록된 모든 센서를 readings까지 한 번에 fetch
      * (N+1 방지)

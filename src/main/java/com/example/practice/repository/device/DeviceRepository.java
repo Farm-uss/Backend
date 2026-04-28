@@ -13,4 +13,6 @@ public interface DeviceRepository extends JpaRepository<Device, Long> {
     List<Device> findAllByFarmId(Long farmId);
 
     boolean existsByDeviceUuid(String deviceUuid);
+    Optional<Device> findByFarmId(Long farmId);
+    Optional<Device> findFirstByFarmId(Long farmId);
 }

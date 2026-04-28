@@ -10,6 +10,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.OffsetDateTime;
+
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -36,6 +38,22 @@ public class NotificationService {
             throw new IllegalArgumentException("본인의 알림만 읽음 처리할 수 있습니다.");
         }
         notification.markAsRead();
+    }
+
+    @Transactional
+    public long getTotalCount(Long userId) {
+        return notificationRepository.countByUserId(userId);
+    }
+
+    @Transactional
+    public long getUnreadCountValue(Long userId) {
+        return notificationRepository.countByUserIdAndIsRead(userId, false);
+    }
+
+    @Transactional
+    public long getRecentCount(Long userId) {
+        OffsetDateTime tenMinutesAgo = OffsetDateTime.now().minusMinutes(10);
+        return notificationRepository.countRecentNotifications(userId, tenMinutesAgo);
     }
 
     @Transactional
