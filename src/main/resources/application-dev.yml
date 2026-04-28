@@ -46,6 +46,11 @@ google:
   map:
     api-key: ${GOOGLE_MAP_API_KEY}
 
+openai:
+  api-key: ${OPENAI_API_KEY}
+  base-url: https://api.openai.com
+  model: gpt-5-mini
+
 openweather:
   api-key: ${OPENWEATHER_API_KEY}
   base-url: https://api.openweathermap.org
@@ -55,7 +60,8 @@ springdoc:
     path: /swagger-ui.html
   api-docs:
     path: /v3/api-docs
-  paths-to-match: /auth/**,/users/**,/farms/**,/api/v1/crops/**,/api/v1/farms/**,/api/sensor-readings/**,/api/sensors/**,/api/env-data/**,/api/sensor-readings/**,/api/sensors/**,/api/devices/**,/api/led/**,/api/notifications/**
+
+  paths-to-match: /auth/**,/users/**,/farms/**,/api/v1/crops/**,/api/v1/farms/**,/api/sensor-readings/**,/api/sensors/**,/api/env-data/**,/api/sensor-readings/**,/api/sensors/**,/api/devices/**,/api/led/**,/api/notifications/**,/api/crops-recommend/**,/api/schedules/**
 
 swagger:
   server-url: ${SWAGGER_SERVER_URL:http://localhost:8080}
@@ -84,3 +90,9 @@ aws:
     secret-key: ${AWS_SECRET_KEY}
     region: ${AWS_REGION}
     bucket: ${AWS_S3_BUCKET}
+
+
+vapid:
+  public-key: ${VAPID_PUBLIC_KEY}
+  private-key: ${VAPID_PRIVATE_KEY}
+  subject: ${VAPID_SUBJECT}

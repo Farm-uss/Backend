@@ -114,7 +114,7 @@ public class FarmService {
                 .map(fm -> {
                     Farm farm = fm.getFarm();  // fm.getFarm() 안전
 
-                    Long deviceId = deviceRepository.findByFarmId(farm.getId())
+                    Long deviceId = deviceRepository.findFirstByFarmId(farm.getId())
                             .map(Device::getDeviceId)
                             .orElse(null);
 

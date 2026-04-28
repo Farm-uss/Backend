@@ -66,4 +66,7 @@ public interface SensorReadingRepository extends JpaRepository<SensorReading, Lo
             @Param("sensorType") String sensorType
     );
 
+    // 기존 메서드는 그대로 두고 추가
+    Optional<SensorReading> findTopBySensor_SensorIdOrderByMeasuredAtDesc(Long sensorId);
+
 }

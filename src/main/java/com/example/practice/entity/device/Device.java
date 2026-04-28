@@ -46,9 +46,11 @@ public class Device extends BaseTimeEntity {
     @Column(name = "farm_id", nullable = false)
     private Long farmId;
 
+    @Builder.Default
     @OneToMany(mappedBy = "device", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Sensor> sensors = new ArrayList<>();
 
+    @Builder.Default
     @OneToMany(mappedBy = "device", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<EnvData> envDataList = new ArrayList<>();
 
@@ -70,6 +72,10 @@ public class Device extends BaseTimeEntity {
 
     public void refreshLastSeenAt(OffsetDateTime now) {
         this.lastSeenAt = now;
+    }
+
+    public void moveFarm(Long newFarmId) {
+        this.farmId = newFarmId;
     }
 
 }
