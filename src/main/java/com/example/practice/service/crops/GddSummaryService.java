@@ -183,20 +183,22 @@ public class GddSummaryService {
             Long userId,
             GrowthMetricType metric,
             LocalDate from,
-            LocalDate to
+            LocalDate to,
+            Integer windowDays
     ) {
         getAccessibleCrop(farmId, cropsId, userId);
 
         if (from.isAfter(to)) {
             throw new AppException(HttpStatus.BAD_REQUEST, "from must be less than or equal to to");
         }
+        validateWindowDays(windowDays);
 
         OffsetDateTime fromAt = from.atStartOfDay().atOffset(OffsetDateTime.now().getOffset());
         OffsetDateTime toExclusive = to.plusDays(1).atStartOfDay().atOffset(OffsetDateTime.now().getOffset());
         List<GrowthMeasurement> rows = growthMeasurementRepository
                 .findAllByCrops_CropsIdAndMeasuredAtBetweenOrderByMeasuredAtAsc(cropsId, fromAt, toExclusive.minusNanos(1));
 
-        return rows.stream()
+        List<GrowthMetricResponse> metrics = rows.stream()
                 .map(row -> new GrowthMetricResponse(
                         row.getMeasuredAt().toLocalDate(),
                         resolveMetricValue(metric, row),
@@ -205,6 +207,54 @@ public class GddSummaryService {
                 ))
                 .filter(row -> row.value() != null)
                 .toList();
+
+        if (windowDays == null || windowDays == 1) {
+            return metrics;
+        }
+
+        return bucketGrowthMetrics(metrics, from, to, windowDays);
+    }
+
+    private void validateWindowDays(Integer windowDays) {
+        if (windowDays == null || windowDays == 1) {
+            return;
+        }
+        if (windowDays != 3 && windowDays != 7 && windowDays != 31) {
+            throw new AppException(HttpStatus.BAD_REQUEST, "windowDays must be one of 3, 7, 31");
+        }
+    }
+
+    private List<GrowthMetricResponse> bucketGrowthMetrics(
+            List<GrowthMetricResponse> metrics,
+            LocalDate from,
+            LocalDate to,
+            int windowDays
+    ) {
+        Map<LocalDate, GrowthMetricResponse> latestByBucketStart = new LinkedHashMap<>();
+
+        for (GrowthMetricResponse metric : metrics) {
+            long daysFromStart = ChronoUnit.DAYS.between(from, metric.date());
+            long bucketIndex = daysFromStart / windowDays;
+            LocalDate bucketStart = from.plusDays(bucketIndex * windowDays);
+            latestByBucketStart.put(bucketStart, metric);
+        }
+
+        List<GrowthMetricResponse> result = new ArrayList<>();
+        LocalDate cursor = from;
+        while (!cursor.isAfter(to)) {
+            GrowthMetricResponse bucketMetric = latestByBucketStart.get(cursor);
+            if (bucketMetric != null) {
+                result.add(new GrowthMetricResponse(
+                        bucketMetric.date(),
+                        bucketMetric.value(),
+                        bucketMetric.source(),
+                        bucketMetric.imageId()
+                ));
+            }
+            cursor = cursor.plusDays(windowDays);
+        }
+
+        return result;
     }
 
     @Transactional(readOnly = true)
