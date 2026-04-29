@@ -14,15 +14,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
-
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.util.List;
-import java.util.UUID;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
@@ -83,38 +75,18 @@ public class AuthController { //whduddnqkqh
 
     @Operation(summary = "프로필 변경", description = "프로필 사진을 변경합니다.")
     @PostMapping("/profile/image")
-    public ResponseEntity<?> uploadProfileImage(
+    public ResponseEntity<String> uploadProfileImage(
             Authentication authentication,
-            @RequestParam("image") MultipartFile imageFile) {
+            @RequestBody ProfileImageUpdateRequest req) {
 
-        // 1. 현재 로그인한 사용자 ID 가져오기
-        UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
-        Long userId = principal.id();
-
-        try {
-            // 2. 고유 파일명 생성 (UUID + 원본 확장자)
-            String originalFilename = imageFile.getOriginalFilename();
-            String fileExtension = originalFilename.substring(originalFilename.lastIndexOf("."));
-            String fileName = UUID.randomUUID().toString() + fileExtension;
-
-            // 3. uploads/profile 폴더에 저장
-            Path uploadDir = Paths.get("uploads/profile");
-            Files.createDirectories(uploadDir);  // 폴더 없으면 생성
-
-            Path filePath = uploadDir.resolve(fileName);
-            Files.copy(imageFile.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
-
-            // 4. DB에 URL 업데이트 (AuthService에 updateProfileImage 메서드 추가 필요)
-            String imageUrl = "/uploads/profile/" + fileName;
-            authService.updateProfileImage(userId, imageUrl);
-
-            // 5. 성공 응답
-            return ResponseEntity.ok().body(imageUrl);
-
-        } catch (IOException e) {
-            return ResponseEntity.internalServerError()
-                    .body("이미지 업로드 실패: " + e.getMessage());
+        if (authentication == null || authentication.getPrincipal() == null) {
+            throw new AppException(HttpStatus.UNAUTHORIZED, "unauthorized");
         }
+
+        UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
+        String imageUrl = authService.updateProfileImage(principal.id(), req.getImage());
+
+        return ResponseEntity.ok(imageUrl);
     }
 
     @Operation(summary = "사용자 검색", description = "닉네임 검색")

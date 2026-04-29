@@ -55,17 +55,16 @@ public class FarmCropGddController {
         return gddSummaryService.getWindowedTimeSeries(farmId, cropsId, user.id(), windowDays);
     }
 
-    @Operation(summary = "성장 지표 시계열", description = "기간(from~to)의 특정 성장 지표(metric) 시계열을 반환합니다.")
+    @Operation(summary = "성장 지표 시계열", description = "파종일부터 오늘까지의 특정 성장 지표(metric) 시계열을 반환합니다. windowDays를 주면 3/7/31일 단위 대표값으로 묶어 반환합니다.")
     @GetMapping("/{farmId}/crops/{cropsId}/growth-metrics")
     public List<GrowthMetricResponse> getGrowthMetrics(
             @PathVariable Long farmId,
             @PathVariable Long cropsId,
             @RequestParam GrowthMetricType metric,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @RequestParam(required = false) Integer windowDays,
             @AuthenticationPrincipal TokenAuthFilter.UserPrincipal user
     ) {
-        return gddSummaryService.getGrowthMetrics(farmId, cropsId, user.id(), metric, from, to);
+        return gddSummaryService.getGrowthMetrics(farmId, cropsId, user.id(), metric, windowDays);
     }
 
     @Operation(summary = "성장일기 월별 목록", description = "특정 월의 날짜별 카드 리스트를 반환합니다.")
