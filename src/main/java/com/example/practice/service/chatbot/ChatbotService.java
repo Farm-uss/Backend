@@ -32,6 +32,12 @@ public class ChatbotService {
         Map<String, Object> requestBody = new HashMap<>();
         requestBody.put("model", model);
         requestBody.put("input", message);
+        requestBody.put("instructions", "사용자에게 한국어로 짧고 간단하게 한두 문장 이내로 답변해줘.");
+        requestBody.put("max_output_tokens", 300);
+
+        Map<String, Object> reasoning = new HashMap<>();
+        reasoning.put("effort", "low");
+        requestBody.put("reasoning", reasoning);
 
         Map<String, Object> response = openAiWebClient.post()
                 .uri("https://api.openai.com/v1/responses")
@@ -39,6 +45,8 @@ public class ChatbotService {
                 .retrieve()
                 .bodyToMono(Map.class)
                 .block();
+
+        System.out.println("OPENAI RESPONSE = " + response);
 
         String answer = extractOutputText(response);
 
@@ -54,9 +62,10 @@ public class ChatbotService {
 
         Object output = response.get("output");
         if (!(output instanceof List<?> outputList)) {
-            Object fallback = response.get("output_text");
-            return fallback instanceof String ? (String) fallback : null;
+            return null;
         }
+
+        StringBuilder sb = new StringBuilder();
 
         for (Object outputItem : outputList) {
             if (!(outputItem instanceof Map<?, ?> outputMap)) {
@@ -74,15 +83,17 @@ public class ChatbotService {
                 }
 
                 Object type = contentMap.get("type");
-                if ("output_text".equals(type)) {
-                    Object text = contentMap.get("text");
-                    if (text instanceof String textValue) {
-                        return textValue;
+                Object text = contentMap.get("text");
+
+                if ("output_text".equals(type) && text instanceof String textValue) {
+                    if (!sb.isEmpty()) {
+                        sb.append("\n");
                     }
+                    sb.append(textValue);
                 }
             }
         }
 
-        return null;
+        return sb.isEmpty() ? null : sb.toString();
     }
 }
