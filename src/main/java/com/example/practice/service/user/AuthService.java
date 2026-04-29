@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.security.SecureRandom;
 import java.time.OffsetDateTime;
 import java.util.Base64;
+import java.util.Collections;
 import java.util.List;
 
 @Service
@@ -150,12 +151,14 @@ public class AuthService {
     }
 
     @Transactional
-    public void updateProfileImage(Long userId, String imageUrl) {
+    public String updateProfileImage(Long userId, String imageId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, "사용자 없음"));
 
+        String imageUrl = buildProfileImageUrl(imageId);
         user.setProfileImageUrl(imageUrl);
         userRepository.save(user);
+        return imageUrl;
     }
 
 
@@ -180,5 +183,12 @@ public class AuthService {
         random.nextBytes(bytes);
         // URL-safe
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    }
+
+    private String buildProfileImageUrl(String imageId) {
+        if (imageId == null || imageId.trim().isEmpty()) {
+            throw new AppException(HttpStatus.BAD_REQUEST, "image is required");
+        }
+        return buildS3ImageUrl(Collections.singletonList(imageId));
     }
 }
