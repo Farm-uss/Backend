@@ -1,4 +1,3 @@
 spring:
   profiles:
     active: local # 기본은 로컬, 서버 배포 시에만 dev로 실행
-
