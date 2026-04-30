@@ -57,7 +57,7 @@ springdoc:
   api-docs:
     path: /v3/api-docs
 
-  paths-to-match: /auth/**,/users/**,/farms/**,/api/v1/crops/**,/api/v1/farms/**,/api/sensor-readings/**,/api/sensors/**,/api/env-data/**,/api/sensor-readings/**,/api/sensors/**,/api/devices/**,/api/led/**,/api/notifications/**,/api/crops-recommend/**,/api/schedules/**,/api/push/**,/api/farms/**,/api/chatbot/**
+  paths-to-match: /auth/**,/users/**,/farms/**,/api/v1/crops/**,/api/v1/farms/**,/api/sensor-readings/**,/api/sensors/**,/api/env-data/**,/api/sensor-readings/**,/api/sensors/**,/api/devices/**,/api/led/**,/api/notifications/**,/api/v1/crops-recommend/**,/api/schedules/**,/api/push/**,/api/farms/**,/api/chatbot/**
 
 swagger:
   server-url: ${SWAGGER_SERVER_URL:http://localhost:8080}
