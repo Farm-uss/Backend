@@ -3,16 +3,27 @@ package com.example.practice.service.farm;
 import com.example.practice.dto.farm.*;
 import com.example.practice.entity.crops.Crops;
 import com.example.practice.entity.crops.CropGrowthStandard;
+import com.example.practice.entity.device.Camera;
 import com.example.practice.entity.device.Device;
 import com.example.practice.entity.farm.*;
 import com.example.practice.entity.location.Location;
 import com.example.practice.exception.FarmException;
 import com.example.practice.repository.crops.CropGrowthStandardRepository;
+import com.example.practice.repository.crops.CropGddDailyRepository;
 import com.example.practice.repository.crops.CropsRepository;
+import com.example.practice.repository.crops.GrowthMeasurementRepository;
+import com.example.practice.repository.crops.ImageCaptureRepository;
+import com.example.practice.repository.crops.VisionInferenceRepository;
+import com.example.practice.repository.device.CameraRepository;
+import com.example.practice.repository.device.DeviceCommandRepository;
 import com.example.practice.repository.device.DeviceRepository;
+import com.example.practice.repository.farm.FarmInvitationRepository;
 import com.example.practice.repository.farm.FarmMemberRepository;
 import com.example.practice.repository.farm.FarmRepository;
 import com.example.practice.repository.location.LocationRepository;
+import com.example.practice.repository.notification.NotificationRepository;
+import com.example.practice.repository.schedule.AutomationScheduleRepository;
+import com.example.practice.repository.schedule.ScheduleExecutionHistoryRepository;
 import com.example.practice.repository.user.UserRepository;
 import com.example.practice.service.aws.AwsS3Service;
 import lombok.RequiredArgsConstructor;
@@ -42,6 +53,16 @@ public class FarmService {
     private final CropGrowthStandardRepository cropGrowthStandardRepository;
     private final AwsS3Service awsS3Service;
     private final DeviceRepository deviceRepository;
+    private final CameraRepository cameraRepository;
+    private final DeviceCommandRepository deviceCommandRepository;
+    private final AutomationScheduleRepository automationScheduleRepository;
+    private final ScheduleExecutionHistoryRepository scheduleExecutionHistoryRepository;
+    private final NotificationRepository notificationRepository;
+    private final FarmInvitationRepository farmInvitationRepository;
+    private final GrowthMeasurementRepository growthMeasurementRepository;
+    private final CropGddDailyRepository cropGddDailyRepository;
+    private final ImageCaptureRepository imageCaptureRepository;
+    private final VisionInferenceRepository visionInferenceRepository;
 
 
     @Value("${file.default-img:}")
@@ -214,7 +235,35 @@ public class FarmService {
         if (member.getRole() != FarmRole.OWNER) {
             throw new RuntimeException("농장주만 농장을 삭제할 수 있습니다.");
         }
+        List<Long> deviceIds = deviceRepository.findAllByFarmId(farmId).stream()
+                .map(Device::getDeviceId)
+                .toList();
+
+        List<Long> cameraIds = cameraRepository.findAllByDevice_FarmId(farmId).stream()
+                .map(Camera::getCameraId)
+                .toList();
+
         // 2. 연관 데이터 삭제 (순서 중요: 자식부터 지우기)
+        if (!cameraIds.isEmpty()) {
+            visionInferenceRepository.deleteAllByCapture_CameraIdIn(cameraIds);
+            imageCaptureRepository.deleteAllByCameraIdIn(cameraIds);
+        }
+
+        if (!deviceIds.isEmpty()) {
+            deviceCommandRepository.deleteAllByDeviceIdIn(deviceIds);
+        }
+
+        scheduleExecutionHistoryRepository.deleteAllBySchedule_FarmId(farmId);
+        automationScheduleRepository.deleteAllByFarmId(farmId);
+
+        notificationRepository.deleteAllByFarmId(farmId);
+        farmInvitationRepository.deleteAllByFarmId(farmId);
+
+        cameraRepository.deleteAllByDevice_FarmId(farmId);
+        deviceRepository.deleteAllByFarmId(farmId);
+
+        growthMeasurementRepository.deleteAllByCrops_Farm_Id(farmId);
+        cropGddDailyRepository.deleteAllByCrops_Farm_Id(farmId);
         locationRepo.deleteByFarmId(farmId);
         cropsRepo.deleteAllByFarm_Id(farmId);
         farmMemberRepo.deleteAllByFarmId(farmId);
