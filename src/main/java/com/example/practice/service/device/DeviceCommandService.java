@@ -32,8 +32,7 @@ public class DeviceCommandService {
      */
     @Transactional
     public CommandResponse createCommand(CommandType commandType) {
-        Device device = deviceRepository.findAll().stream()
-                .findFirst()
+        Device device = deviceRepository.findById(1L)
                 .orElseThrow(() -> new IllegalStateException("등록된 디바이스가 없습니다."));
 
         DeviceCommand cmd = DeviceCommand.create(device.getDeviceId(), commandType);
