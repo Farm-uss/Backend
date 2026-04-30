@@ -36,4 +36,6 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
 
     // ↓ 추가 - 전체 알림 수 조회
     long countByUserId(Long userId);
+
+    void deleteAllByFarmId(Long farmId);
 }

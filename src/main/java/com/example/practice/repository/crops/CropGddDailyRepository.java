@@ -86,4 +86,6 @@ public interface CropGddDailyRepository extends JpaRepository<CropGddDaily, Long
                 @Param("stationCode") String stationCode,
                 @Param("source") String source,
                 @Param("fetchedAt") OffsetDateTime fetchedAt);
+
+    void deleteAllByCrops_Farm_Id(Long farmId);
 }

@@ -27,4 +27,6 @@ public interface GrowthMeasurementRepository extends JpaRepository<GrowthMeasure
     );
 
     Optional<GrowthMeasurement> findTopByCrops_CropsIdAndAiConfidenceIsNotNullOrderByMeasuredAtDesc(Long cropsId);
+
+    void deleteAllByCrops_Farm_Id(Long farmId);
 }

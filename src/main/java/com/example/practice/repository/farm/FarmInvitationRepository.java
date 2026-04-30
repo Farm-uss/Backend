@@ -15,4 +15,6 @@ public interface FarmInvitationRepository extends JpaRepository<FarmInvitation, 
     Optional<FarmInvitation> findByFarmIdAndInvitedUserId(Long farmId, Long userId);
 
     boolean existsByFarmIdAndInvitedUserId(Long farmId, Long userId);
+
+    void deleteAllByFarmId(Long farmId);
 }
