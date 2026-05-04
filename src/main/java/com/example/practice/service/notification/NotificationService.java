@@ -21,7 +21,7 @@ public class NotificationService {
 
     public Page<NotificationResponse> getMyNotifications(Long userId, Pageable pageable) {
         return notificationRepository
-                .findAllByUserIdOrderByCreatedAtDesc(userId, pageable)
+                .findAllByUserId(userId, pageable)
                 .map(NotificationResponse::from);
     }
 
@@ -32,25 +32,19 @@ public class NotificationService {
 
     @Transactional
     public void markAsRead(Long notificationId, Long userId) {
-        Notification notification = notificationRepository.findById(notificationId)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 알림입니다."));
-        if (!notification.getUserId().equals(userId)) {
-            throw new IllegalArgumentException("본인의 알림만 읽음 처리할 수 있습니다.");
-        }
+        Notification notification = notificationRepository.findByIdAndUserId(notificationId, userId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않거나 본인 알림이 아닙니다."));
         notification.markAsRead();
     }
 
-    @Transactional
     public long getTotalCount(Long userId) {
         return notificationRepository.countByUserId(userId);
     }
 
-    @Transactional
     public long getUnreadCountValue(Long userId) {
         return notificationRepository.countByUserIdAndIsRead(userId, false);
     }
 
-    @Transactional
     public long getRecentCount(Long userId) {
         OffsetDateTime tenMinutesAgo = OffsetDateTime.now().minusMinutes(10);
         return notificationRepository.countRecentNotifications(userId, tenMinutesAgo);
