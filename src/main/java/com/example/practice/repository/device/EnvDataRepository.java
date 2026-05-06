@@ -24,5 +24,6 @@ public interface EnvDataRepository extends JpaRepository<EnvData, Long> {
             LIMIT 1
             """)
     Optional<EnvData> findLatestByFarmId(@Param("farmId") Long farmId);
+
 }
 
