@@ -39,12 +39,15 @@ public class WebPushService {
         List<PushSubscription> subscriptions =
                 pushSubscriptionRepository.findAllByUserId(userId);
 
+        log.info("[WebPush] pushService instance id={}, subject={}",
+                System.identityHashCode(pushService),
+                "mailto:0509tkddnr@naver.com");
+
         subscriptions.forEach(sub -> {
             try {
                 String payload = String.format(
                         "{\"title\":\"%s\",\"body\":\"%s\"}", title, body);
 
-                // ECPublicKey 변환 없이 Subscription 객체로 바로 처리
                 nl.martijndwars.webpush.Subscription subscription =
                         new nl.martijndwars.webpush.Subscription(
                                 sub.getEndpoint(),
@@ -54,11 +57,29 @@ public class WebPushService {
                                 )
                         );
 
+                String endpoint = sub.getEndpoint();
+                String endpointOrigin = java.net.URI.create(endpoint).getScheme()
+                        + "://"
+                        + java.net.URI.create(endpoint).getHost();
+
+                log.info("[WebPush] send start userId={}, endpoint={}, origin={}, pushServiceId={}",
+                        userId, endpoint, endpointOrigin, System.identityHashCode(pushService));
+
                 Notification notification = new Notification(subscription, payload);
-                pushService.send(notification);
+                var response = pushService.send(notification);
+
+                int statusCode = response.getStatusLine().getStatusCode();
+                String responseBody = response.getEntity() != null
+                        ? org.apache.http.util.EntityUtils.toString(response.getEntity())
+                        : "";
+
+                log.info("[WebPush] send end userId={}, origin={}, statusCode={}, body={}, pushServiceId={}",
+                        userId, endpointOrigin, statusCode, responseBody,
+                        System.identityHashCode(pushService));
 
             } catch (Exception e) {
-                log.error("[WebPush] 발송 실패 userId={}: {}", userId, e.getMessage());
+                log.error("[WebPush] send fail userId={}, endpoint={}, pushServiceId={}, message={}",
+                        userId, sub.getEndpoint(), System.identityHashCode(pushService), e.getMessage(), e);
             }
         });
     }
