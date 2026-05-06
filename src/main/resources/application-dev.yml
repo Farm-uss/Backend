@@ -97,3 +97,10 @@ openai:
   api-key: ${OPENAI_API_KEY}
   base-url: https://api.openai.com
   model: gpt-5-mini
+
+kakao:
+  client-id: ${KAKAO_CLIENT_ID}
+  client-secret: ${KAKAO_CLIENT_SECRET:}
+  redirect-uri: ${KAKAO_REDIRECT_URI}
+  auth-base-url: https://kauth.kakao.com
+  api-base-url: https://kapi.kakao.com
