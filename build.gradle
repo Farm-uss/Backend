@@ -46,6 +46,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-webflux'
     implementation 'nl.martijndwars:web-push:5.1.2'
     implementation 'org.bouncycastle:bcprov-jdk15on:1.70'
+    implementation 'org.bitbucket.b_c:jose4j:0.9.6'
 }
 
 tasks.named('test') {
