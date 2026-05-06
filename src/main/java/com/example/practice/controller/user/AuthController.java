@@ -41,7 +41,16 @@ public class AuthController { //whduddnqkqh
     public AuthResponse login(@RequestBody LoginRequest req) {
         return authService.login(req);
     }
+    @Operation(summary = "카카오 로그인", description = "카카오 인가 코드로 로그인합니다.")
+    @PostMapping("/login/kakao")
+    public AuthResponse kakaoLogin(@RequestBody KakaoLoginRequest req) {
+        return authService.kakaoLogin(req);
+    }
 
+    @PostMapping("/auto-login")
+    public AuthResponse autoLogin(@RequestBody RefreshRequest req) {
+        return authService.autoLogin(req);
+    }
 
 
     @Operation(summary = "마이페이지", description = "그냥 토큰만 넣으면 됩니다")
