@@ -47,7 +47,10 @@ public class AuthController { //whduddnqkqh
         return authService.kakaoLogin(req);
     }
 
-
+    @PostMapping("/auto-login")
+    public AuthResponse autoLogin(@RequestBody RefreshRequest req) {
+        return authService.autoLogin(req);
+    }
 
 
     @Operation(summary = "마이페이지", description = "그냥 토큰만 넣으면 됩니다")

@@ -195,6 +195,30 @@ public class AuthService {
         return String.format("https://hansungfarmimg.s3.eu-north-1.amazonaws.com/user/%s.png", firstId);
     }
 
+    @Transactional(readOnly = true)
+    public AuthResponse autoLogin(RefreshRequest req) {
+        if (req == null || req.getRefreshToken() == null || req.getRefreshToken().isBlank()) {
+            throw new AppException(HttpStatus.BAD_REQUEST, "refreshToken is required");
+        }
+
+        AuthToken authToken = authTokenRepository.findByTokenWithUser(req.getRefreshToken())
+                .orElseThrow(() -> new AppException(HttpStatus.UNAUTHORIZED, "invalid refresh token"));
+
+        if (authToken.getExpiresAt().isBefore(OffsetDateTime.now())) {
+            throw new AppException(HttpStatus.UNAUTHORIZED, "refresh token expired");
+        }
+
+        User user = authToken.getUser();
+        String accessToken = jwtProvider.createAccessToken(user.getId(), user.getEmail());
+
+        return new AuthResponse(
+                accessToken,
+                req.getRefreshToken(),
+                user.getId(),
+                user.getNickname()
+        );
+    }
+
 
     @Transactional
     public AuthResponse login(LoginRequest req) {
