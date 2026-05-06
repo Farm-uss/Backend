@@ -14,6 +14,12 @@ public interface CameraRepository extends JpaRepository<Camera, Long> {
 
     Optional<Camera> findByCameraIdAndDevice_FarmId(Long cameraId, Long farmId);
 
+    Optional<Camera> findFirstByDevice_DeviceIdAndPrimaryTrueOrderByCameraIdAsc(Long deviceId);
+
+    Optional<Camera> findFirstByDevice_DeviceIdOrderByPrimaryDescCameraIdAsc(Long deviceId);
+
+    Optional<Camera> findByCameraIdAndDevice_DeviceId(Long cameraId, Long deviceId);
+
     List<Camera> findAllByDevice_FarmId(Long farmId);
 
     void deleteAllByDevice_FarmId(Long farmId);

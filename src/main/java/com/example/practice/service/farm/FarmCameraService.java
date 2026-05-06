@@ -5,10 +5,12 @@ import com.example.practice.dto.farm.CameraCaptureResponse;
 import com.example.practice.dto.farm.CameraStreamResponse;
 import com.example.practice.entity.crops.ImageCapture;
 import com.example.practice.entity.device.Camera;
+import com.example.practice.entity.device.Device;
 import com.example.practice.repository.crops.ImageCaptureRepository;
 import com.example.practice.repository.device.CameraRepository;
 import com.example.practice.repository.farm.FarmMemberRepository;
 import com.example.practice.service.aws.AwsS3Service;
+import com.example.practice.service.device.DeviceService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
@@ -37,6 +39,7 @@ public class FarmCameraService {
     private final CameraRepository cameraRepository;
     private final ImageCaptureRepository imageCaptureRepository;
     private final AwsS3Service awsS3Service;
+    private final DeviceService deviceService;
     private final WebClient.Builder webClientBuilder;
 
     @Value("${file.upload-dir}")
@@ -82,16 +85,25 @@ public class FarmCameraService {
             throw new AppException(HttpStatus.FORBIDDEN, "farm access denied");
         }
 
-        return captureCameraInternal(farmId, cameraId);
+        return captureCameraInternal(resolveCamera(farmId, cameraId));
+    }
+
+    @Transactional
+    public CameraCaptureResponse captureDeviceCamera(Long deviceId, Long cameraId, Long userId) {
+        Device device = deviceService.findById(deviceId);
+        if (!farmMemberRepository.existsByFarmIdAndUserId(device.getFarmId(), userId)) {
+            throw new AppException(HttpStatus.FORBIDDEN, "farm access denied");
+        }
+
+        return captureCameraInternal(resolveCameraByDevice(deviceId, cameraId));
     }
 
     @Transactional
     public CameraCaptureResponse captureFarmCameraForSchedule(Long farmId, Long cameraId) {
-        return captureCameraInternal(farmId, cameraId);
+        return captureCameraInternal(resolveCamera(farmId, cameraId));
     }
 
-    private CameraCaptureResponse captureCameraInternal(Long farmId, Long cameraId) {
-        Camera camera = resolveCamera(farmId, cameraId);
+    private CameraCaptureResponse captureCameraInternal(Camera camera) {
         if (camera.getCaptureEndpoint() == null || camera.getCaptureEndpoint().isBlank()) {
             throw new AppException(HttpStatus.NOT_FOUND, "camera capture endpoint not configured");
         }
@@ -125,6 +137,17 @@ public class FarmCameraService {
         return cameraRepository.findFirstByDevice_FarmIdAndPrimaryTrueOrderByCameraIdAsc(farmId)
                 .or(() -> cameraRepository.findFirstByDevice_FarmIdOrderByPrimaryDescCameraIdAsc(farmId))
                 .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, "camera not configured for farm"));
+    }
+
+    private Camera resolveCameraByDevice(Long deviceId, Long cameraId) {
+        if (cameraId != null) {
+            return cameraRepository.findByCameraIdAndDevice_DeviceId(cameraId, deviceId)
+                    .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, "camera not found in device"));
+        }
+
+        return cameraRepository.findFirstByDevice_DeviceIdAndPrimaryTrueOrderByCameraIdAsc(deviceId)
+                .or(() -> cameraRepository.findFirstByDevice_DeviceIdOrderByPrimaryDescCameraIdAsc(deviceId))
+                .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, "camera not configured for device"));
     }
 
     private String buildStreamUrl(String streamKey, String protocol) {
