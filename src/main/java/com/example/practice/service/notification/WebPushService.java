@@ -56,12 +56,13 @@ public class WebPushService {
                         escapeJson(title), escapeJson(body)
                 );
 
+                // ↓ 수정 - URL-safe Base64로 변환 후 사용
+                String p256dh = toUrlSafeBase64(sub.getP256dh());
+                String auth = toUrlSafeBase64(sub.getAuth());
+
                 Subscription subscription = new Subscription(
                         sub.getEndpoint(),
-                        new Subscription.Keys(
-                                sub.getP256dh(),
-                                sub.getAuth()
-                        )
+                        new Subscription.Keys(p256dh, auth)
                 );
 
                 String endpoint = sub.getEndpoint();
@@ -93,6 +94,15 @@ public class WebPushService {
                         userId, sub.getEndpoint(), System.identityHashCode(pushService), e.getMessage(), e);
             }
         });
+    }
+
+    // ↓ 추가
+    private String toUrlSafeBase64(String base64) {
+        if (base64 == null) return null;
+        return base64
+                .replace("+", "-")
+                .replace("/", "_")
+                .replace("=", "");
     }
 
     private String escapeJson(String value) {
