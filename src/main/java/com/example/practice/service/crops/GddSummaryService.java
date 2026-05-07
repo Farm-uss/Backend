@@ -289,34 +289,18 @@ public class GddSummaryService {
         }
         LocalDate monthEnd = monthStart.withDayOfMonth(monthStart.lengthOfMonth());
 
-        OffsetDateTime fromAt = monthStart.atStartOfDay().atOffset(OffsetDateTime.now().getOffset());
-        OffsetDateTime toAt = monthEnd.plusDays(1).atStartOfDay().atOffset(OffsetDateTime.now().getOffset()).minusNanos(1);
+        List<CropGddDaily> rows = cropGddDailyRepository
+                .findAllByCrops_CropsIdAndTargetDateBetweenOrderByTargetDateAsc(cropsId, monthStart, monthEnd);
 
-        List<GrowthMeasurement> monthRows = growthMeasurementRepository
-                .findAllByCrops_CropsIdAndMeasuredAtBetweenOrderByMeasuredAtAsc(cropsId, fromAt, toAt);
-
-        GrowthMeasurement previous = growthMeasurementRepository
-                .findTopByCrops_CropsIdAndMeasuredAtLessThanOrderByMeasuredAtDesc(cropsId, fromAt)
-                .orElse(null);
-
-        // 날짜별 카드 1개만 필요하므로 같은 날짜는 가장 마지막 측정값을 사용한다.
-        Map<LocalDate, GrowthMeasurement> latestByDate = new LinkedHashMap<>();
-        for (GrowthMeasurement row : monthRows) {
-            latestByDate.put(row.getMeasuredAt().toLocalDate(), row);
-        }
-
-        List<GrowthDiaryCardResponse> response = new ArrayList<>(latestByDate.size());
-        for (GrowthMeasurement current : latestByDate.values()) {
+        List<GrowthDiaryCardResponse> response = new ArrayList<>(rows.size());
+        for (CropGddDaily row : rows) {
+            LocalDate targetDate = row.getTargetDate();
             response.add(new GrowthDiaryCardResponse(
-                    current.getMeasuredAt().toLocalDate(),
-                    null,
-                    diffInt(current.getLeafCount(), previous == null ? null : previous.getLeafCount()),
-                    diffInt(current.getFruitCount(), previous == null ? null : previous.getFruitCount()),
-                    diffDecimal(resolveSizeCm(current), previous == null ? null : resolveSizeCm(previous)),
-                    null,
-                    null
+                    targetDate.getMonthValue(),
+                    targetDate.getDayOfMonth(),
+                    targetDate,
+                    row.getGdd()
             ));
-            previous = current;
         }
 
         return response;
