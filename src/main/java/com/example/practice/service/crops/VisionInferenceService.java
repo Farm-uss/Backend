@@ -57,6 +57,11 @@ public class VisionInferenceService {
     private static final String TASK_DISEASE_CLASSIFICATION = "DISEASE_CLASSIFICATION";
     private static final String TASK_GROWTH_MEASUREMENT = "GROWTH_MEASUREMENT";
     private static final BigDecimal GROWTH_CONFIDENCE_THRESHOLD = BigDecimal.valueOf(0.6);
+    private static final Map<Integer, Integer> DISEASE_TO_GROWTH_CROP_CODE = Map.of(
+            2, 6,
+            3, 4,
+            5, 5
+    );
 
     private final FarmMemberRepository farmMemberRepository;
     private final CropsRepository cropsRepository;
@@ -141,6 +146,67 @@ public class VisionInferenceService {
     }
 
     @Transactional
+    public DiseaseCheckData inferScheduledDiseaseAndSave(
+            Long farmId,
+            Long cropsId,
+            byte[] imageBytes,
+            String originalFilename,
+            String contentType,
+            Long cameraId,
+            Long captureId,
+            OffsetDateTime measuredAt
+    ) {
+        Crops crop = cropsRepository.findByFarmIdAndCropsIdWithGrowthStandard(farmId, cropsId)
+                .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, "crops not found in farm"));
+        Integer cropCode = parseCropCode(crop);
+
+        PreparedInferenceContext prepared = prepareCapturedInference(
+                crop,
+                imageBytes,
+                originalFilename,
+                contentType,
+                cameraId,
+                captureId,
+                TASK_DISEASE_CLASSIFICATION,
+                cropCode,
+                measuredAt
+        );
+        VisionInference inference = saveVisionInference(prepared.uploadedImage(), prepared.aiResponse());
+        return toCheckData(prepared.uploadedImage(), inference, prepared.aiResponse());
+    }
+
+    @Transactional
+    public GrowthCheckData inferScheduledGrowthAndSave(
+            Long farmId,
+            Long cropsId,
+            byte[] imageBytes,
+            String originalFilename,
+            String contentType,
+            Long cameraId,
+            Long captureId,
+            OffsetDateTime measuredAt
+    ) {
+        Crops crop = cropsRepository.findByFarmIdAndCropsIdWithGrowthStandard(farmId, cropsId)
+                .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, "crops not found in farm"));
+        Integer cropCode = parseScheduledGrowthCropCode(crop);
+
+        PreparedInferenceContext prepared = prepareCapturedInference(
+                crop,
+                imageBytes,
+                originalFilename,
+                contentType,
+                cameraId,
+                captureId,
+                TASK_GROWTH_MEASUREMENT,
+                cropCode,
+                measuredAt
+        );
+        VisionInference inference = saveVisionInference(prepared.uploadedImage(), prepared.aiResponse());
+        saveGrowthMeasurement(prepared.crop(), prepared.capturedAt(), prepared.aiResponse());
+        return toGrowthCheckData(prepared.uploadedImage(), inference, prepared.aiResponse());
+    }
+
+    @Transactional
     private PreparedInferenceContext prepareInference(
             Long farmId,
             Long cropsId,
@@ -185,6 +251,45 @@ public class VisionInferenceService {
         );
 
         return new PreparedInferenceContext(crop, capturedAt, uploadedImage, aiResponse);
+    }
+
+    private PreparedInferenceContext prepareCapturedInference(
+            Crops crop,
+            byte[] imageBytes,
+            String originalFilename,
+            String contentType,
+            Long cameraId,
+            Long captureId,
+            String taskType,
+            Integer cropCode,
+            OffsetDateTime measuredAt
+    ) {
+        if (imageBytes == null || imageBytes.length == 0) {
+            throw new AppException(HttpStatus.BAD_REQUEST, "image is required");
+        }
+
+        ImageCapture capturedImage = imageCaptureRepository.findById(captureId)
+                .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, "image capture not found"));
+        if (cameraId != null && capturedImage.getCameraId() != null && !capturedImage.getCameraId().equals(cameraId)) {
+            throw new AppException(HttpStatus.BAD_REQUEST, "cameraId does not match image capture");
+        }
+
+        String requestedTaskType = normalizeTaskType(taskType);
+        validateTaskInputs(requestedTaskType, cropCode);
+        AiPredictResponse aiResponse = callAiServer(
+                imageBytes,
+                originalFilename,
+                contentType,
+                capturedImage.getCaptureId(),
+                requestedTaskType,
+                cropCode
+        );
+
+        OffsetDateTime capturedAt = measuredAt == null ? capturedImage.getCapturedAt() : measuredAt;
+        if (capturedAt == null) {
+            capturedAt = OffsetDateTime.now(ZoneOffset.UTC);
+        }
+        return new PreparedInferenceContext(crop, capturedAt, capturedImage, aiResponse);
     }
 
     private VisionInference saveVisionInference(ImageCapture uploadedImage, AiPredictResponse aiResponse) {
@@ -676,6 +781,37 @@ public class VisionInferenceService {
         } catch (NumberFormatException e) {
             throw new AppException(HttpStatus.BAD_REQUEST, "invalid cropCode configured for crop");
         }
+    }
+
+    private Integer parseScheduledGrowthCropCode(Crops crop) {
+        Integer diseaseCropCode = parseCropCode(crop);
+        Integer mappedCropCode = DISEASE_TO_GROWTH_CROP_CODE.get(diseaseCropCode);
+        if (mappedCropCode != null) {
+            return mappedCropCode;
+        }
+
+        String cropName = crop.getName() == null ? "" : crop.getName().trim().toLowerCase(Locale.ROOT);
+        if (cropName.contains("양배추") || cropName.contains("cabbage")) {
+            return 1;
+        }
+        if (cropName.contains("상추") || cropName.contains("lettuce")) {
+            return 2;
+        }
+        if (cropName.contains("배추") || cropName.contains("napa")) {
+            return 3;
+        }
+        if (cropName.contains("파프리카") || cropName.contains("paprika")) {
+            return 4;
+        }
+        if (cropName.contains("고추") || cropName.contains("pepper")) {
+            return 5;
+        }
+        if (cropName.contains("토마토") || cropName.contains("tomato")) {
+            return 6;
+        }
+
+        throw new AppException(HttpStatus.BAD_REQUEST,
+                "growth model cropCode is not supported for cropCode=" + diseaseCropCode);
     }
 
     private record PreparedInferenceContext(
