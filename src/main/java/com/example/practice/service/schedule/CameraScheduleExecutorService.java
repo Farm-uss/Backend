@@ -15,7 +15,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
@@ -33,12 +32,12 @@ public class CameraScheduleExecutorService {
     private final AutomationScheduleRepository automationScheduleRepository;
     private final ScheduleExecutionHistoryRepository scheduleExecutionHistoryRepository;
     private final FarmCameraService farmCameraService;
+    private final CameraCaptureInferenceService cameraCaptureInferenceService;
 
     @Value("${camera.scheduler.zone-id:Asia/Seoul}")
     private String zoneId;
 
     @Scheduled(cron = "${camera.scheduler.cron:0 * * * * *}")
-    @Transactional
     public void executeDueCameraSchedules() {
         ZoneId schedulerZone = ZoneId.of(zoneId);
         LocalDateTime now = LocalDateTime.now(schedulerZone).withSecond(0).withNano(0);
@@ -82,12 +81,16 @@ public class CameraScheduleExecutorService {
 
         try {
             CameraCaptureResponse capture = farmCameraService.captureFarmCameraForSchedule(schedule.getFarmId(), null);
-            schedule.updateLastExecution(executedAt, ExecutionStatus.SUCCESS);
+            CameraCaptureInferenceService.ScheduledCaptureInferenceResult inferenceResult =
+                    cameraCaptureInferenceService.runAfterCapture(schedule.getFarmId(), capture);
+            ExecutionStatus status = inferenceResult.hasFailures() ? ExecutionStatus.ERROR : ExecutionStatus.SUCCESS;
+            schedule.updateLastExecution(executedAt, status);
+            automationScheduleRepository.save(schedule);
             scheduleExecutionHistoryRepository.save(ScheduleExecutionHistory.create(
                     schedule,
                     executedAt.withOffsetSameInstant(ZoneOffset.UTC),
-                    ExecutionStatus.SUCCESS,
-                    "camera capture success: captureId=" + capture.captureId(),
+                    status,
+                    inferenceResult.toHistoryMessage(capture.captureId()),
                     null,
                     schedule.getTimeRule() != null ? schedule.getTimeRule().getDurationMinutes() : null
             ));
@@ -95,6 +98,7 @@ public class CameraScheduleExecutorService {
             log.warn("Camera schedule execution failed. scheduleId={} farmId={} message={}",
                     schedule.getScheduleId(), schedule.getFarmId(), ex.getMessage());
             schedule.updateLastExecution(executedAt, ExecutionStatus.ERROR);
+            automationScheduleRepository.save(schedule);
             scheduleExecutionHistoryRepository.save(ScheduleExecutionHistory.create(
                     schedule,
                     executedAt.withOffsetSameInstant(ZoneOffset.UTC),
