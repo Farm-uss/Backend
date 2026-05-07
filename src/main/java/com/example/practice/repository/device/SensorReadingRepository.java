@@ -51,6 +51,24 @@ public interface SensorReadingRepository extends JpaRepository<SensorReading, Lo
             @Param("from") OffsetDateTime from,
             @Param("to") OffsetDateTime to
     );
+
+    @Query("""
+            SELECT sr.value
+            FROM SensorReading sr
+            JOIN sr.sensor s
+            JOIN s.device d
+            WHERE d.farmId = :farmId
+              AND s.sensorType = :sensorType
+              AND sr.measuredAt BETWEEN :from AND :to
+              AND sr.value IS NOT NULL
+            """)
+    List<BigDecimal> findDailyValuesByFarmIdAndSensorType(
+            @Param("farmId") Long farmId,
+            @Param("sensorType") SensorType sensorType,
+            @Param("from") OffsetDateTime from,
+            @Param("to") OffsetDateTime to
+    );
+
     @Query(value = """
         select sr.value
         from sensor_reading sr

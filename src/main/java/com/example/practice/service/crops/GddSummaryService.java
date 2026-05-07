@@ -13,9 +13,13 @@ import com.example.practice.entity.crops.Crops;
 import com.example.practice.entity.crops.GrowthMeasurement;
 import com.example.practice.entity.crops.GrowthMetricSource;
 import com.example.practice.entity.crops.GrowthMetricType;
+import com.example.practice.entity.crops.VisionInference;
+import com.example.practice.entity.device.SensorType;
 import com.example.practice.repository.crops.CropGddDailyRepository;
 import com.example.practice.repository.crops.CropsRepository;
 import com.example.practice.repository.crops.GrowthMeasurementRepository;
+import com.example.practice.repository.crops.VisionInferenceRepository;
+import com.example.practice.repository.device.SensorReadingRepository;
 import com.example.practice.repository.farm.FarmMemberRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -27,6 +31,7 @@ import java.math.RoundingMode;
 import java.time.DateTimeException;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -41,10 +46,15 @@ import com.example.practice.dto.crops.GrowthDiaryCardResponse;
 public class GddSummaryService {
 
     private static final BigDecimal MIN_AVG_DAILY_GDD = BigDecimal.valueOf(0.01);
+    private static final String TASK_DISEASE_CLASSIFICATION = "DISEASE_CLASSIFICATION";
+    private static final String TASK_GROWTH_MEASUREMENT = "GROWTH_MEASUREMENT";
+    private static final ZoneId DIARY_ZONE = ZoneId.of("Asia/Seoul");
 
     private final CropsRepository cropsRepository;
     private final CropGddDailyRepository cropGddDailyRepository;
     private final GrowthMeasurementRepository growthMeasurementRepository;
+    private final VisionInferenceRepository visionInferenceRepository;
+    private final SensorReadingRepository sensorReadingRepository;
     private final FarmMemberRepository farmMemberRepository;
     private final SensorGddIngestionService sensorGddIngestionService;
 
@@ -279,34 +289,18 @@ public class GddSummaryService {
         }
         LocalDate monthEnd = monthStart.withDayOfMonth(monthStart.lengthOfMonth());
 
-        OffsetDateTime fromAt = monthStart.atStartOfDay().atOffset(OffsetDateTime.now().getOffset());
-        OffsetDateTime toAt = monthEnd.plusDays(1).atStartOfDay().atOffset(OffsetDateTime.now().getOffset()).minusNanos(1);
+        List<CropGddDaily> rows = cropGddDailyRepository
+                .findAllByCrops_CropsIdAndTargetDateBetweenOrderByTargetDateAsc(cropsId, monthStart, monthEnd);
 
-        List<GrowthMeasurement> monthRows = growthMeasurementRepository
-                .findAllByCrops_CropsIdAndMeasuredAtBetweenOrderByMeasuredAtAsc(cropsId, fromAt, toAt);
-
-        GrowthMeasurement previous = growthMeasurementRepository
-                .findTopByCrops_CropsIdAndMeasuredAtLessThanOrderByMeasuredAtDesc(cropsId, fromAt)
-                .orElse(null);
-
-        // 날짜별 카드 1개만 필요하므로 같은 날짜는 가장 마지막 측정값을 사용한다.
-        Map<LocalDate, GrowthMeasurement> latestByDate = new LinkedHashMap<>();
-        for (GrowthMeasurement row : monthRows) {
-            latestByDate.put(row.getMeasuredAt().toLocalDate(), row);
-        }
-
-        List<GrowthDiaryCardResponse> response = new ArrayList<>(latestByDate.size());
-        for (GrowthMeasurement current : latestByDate.values()) {
+        List<GrowthDiaryCardResponse> response = new ArrayList<>(rows.size());
+        for (CropGddDaily row : rows) {
+            LocalDate targetDate = row.getTargetDate();
             response.add(new GrowthDiaryCardResponse(
-                    current.getMeasuredAt().toLocalDate(),
-                    null,
-                    diffInt(current.getLeafCount(), previous == null ? null : previous.getLeafCount()),
-                    diffInt(current.getFruitCount(), previous == null ? null : previous.getFruitCount()),
-                    diffDecimal(resolveSizeCm(current), previous == null ? null : resolveSizeCm(previous)),
-                    null,
-                    null
+                    targetDate.getMonthValue(),
+                    targetDate.getDayOfMonth(),
+                    targetDate,
+                    row.getGdd()
             ));
-            previous = current;
         }
 
         return response;
@@ -321,23 +315,44 @@ public class GddSummaryService {
     ) {
         Crops crop = getAccessibleCrop(farmId, cropsId, userId);
 
-        OffsetDateTime dayStart = date.atStartOfDay().atOffset(OffsetDateTime.now().getOffset());
-        OffsetDateTime dayEnd = date.plusDays(1).atStartOfDay().atOffset(OffsetDateTime.now().getOffset()).minusNanos(1);
+        OffsetDateTime dayStart = date.atStartOfDay(DIARY_ZONE).toOffsetDateTime();
+        OffsetDateTime dayEnd = date.plusDays(1).atStartOfDay(DIARY_ZONE).toOffsetDateTime().minusNanos(1);
 
         GrowthMeasurement growthMeasurement = growthMeasurementRepository
                 .findTopByCrops_CropsIdAndMeasuredAtBetweenOrderByMeasuredAtDesc(cropsId, dayStart, dayEnd)
+                .orElse(null);
+
+        VisionInference diseaseInference = visionInferenceRepository
+                .findLatestByFarmIdAndTaskTypeAndCapturedAtBetween(
+                        farmId,
+                        TASK_DISEASE_CLASSIFICATION,
+                        dayStart,
+                        dayEnd
+                )
+                .orElse(null);
+
+        VisionInference growthInference = visionInferenceRepository
+                .findLatestByFarmIdAndTaskTypeAndCapturedAtBetween(
+                        farmId,
+                        TASK_GROWTH_MEASUREMENT,
+                        dayStart,
+                        dayEnd
+                )
                 .orElse(null);
 
         CropGddDaily gddDaily = cropGddDailyRepository
                 .findByCrops_CropsIdAndTargetDate(cropsId, date)
                 .orElse(null);
 
+        String imageUrl = resolveImageUrl(diseaseInference, growthInference);
+        GrowthDiaryDetailResponse.Temperature temperature = toTemperature(farmId, dayStart, dayEnd);
+
         GrowthDiaryDetailResponse.Growth growth = growthMeasurement == null
                 ? null
                 : new GrowthDiaryDetailResponse.Growth(
+                resolveSizeCm(growthMeasurement),
                 growthMeasurement.getLeafCount(),
-                growthMeasurement.getFruitCount(),
-                resolveSizeCm(growthMeasurement)
+                growthMeasurement.getFruitCount()
         );
 
         GrowthDiaryDetailResponse.Gdd gdd = null;
@@ -351,16 +366,17 @@ public class GddSummaryService {
             gdd = new GrowthDiaryDetailResponse.Gdd(gddDaily.getGdd(), cumulative);
         }
 
-        GrowthDiaryDetailResponse.Disease disease = toDisease(growthMeasurement);
+        GrowthDiaryDetailResponse.Disease disease = toDisease(diseaseInference);
 
-        if (growth == null && gdd == null && disease == null) {
+        if (imageUrl == null && temperature == null && growth == null && gdd == null && disease == null) {
             throw new AppException(HttpStatus.NOT_FOUND, "growth diary not found for date");
         }
 
         return new GrowthDiaryDetailResponse(
+                crop.getFarm().getName(),
                 date,
-                null,
-                null,
+                imageUrl,
+                temperature,
                 growth,
                 gdd,
                 disease
@@ -407,19 +423,58 @@ public class GddSummaryService {
         return row.getLeafArea();
     }
 
-    private GrowthDiaryDetailResponse.Disease toDisease(GrowthMeasurement row) {
-        if (row == null || row.getAiConfidence() == null) {
+    private GrowthDiaryDetailResponse.Disease toDisease(VisionInference inference) {
+        if (inference == null) {
             return null;
         }
 
-        String verdict = safeText(row.getAiVerdict());
-        String label = safeText(row.getAiLabel());
-        String diseaseName = verdict != null ? verdict : label;
+        String diseaseName = safeText(inference.getLabel());
         if (diseaseName == null) {
             diseaseName = "unknown";
         }
 
-        return new GrowthDiaryDetailResponse.Disease(diseaseName, row.getAiConfidence());
+        String status = Boolean.TRUE.equals(inference.getIsAbnormal()) || !isHealthyLike(diseaseName)
+                ? "ABNORMAL"
+                : "NORMAL";
+        return new GrowthDiaryDetailResponse.Disease(status, diseaseName, inference.getConfidence());
+    }
+
+    private String resolveImageUrl(VisionInference diseaseInference, VisionInference growthInference) {
+        String diseaseImageUrl = imageUrlOf(diseaseInference);
+        if (diseaseImageUrl != null) {
+            return diseaseImageUrl;
+        }
+        return imageUrlOf(growthInference);
+    }
+
+    private String imageUrlOf(VisionInference inference) {
+        if (inference == null || inference.getCapture() == null) {
+            return null;
+        }
+        return safeText(inference.getCapture().getImagePath());
+    }
+
+    private GrowthDiaryDetailResponse.Temperature toTemperature(
+            Long farmId,
+            OffsetDateTime dayStart,
+            OffsetDateTime dayEnd
+    ) {
+        List<BigDecimal> values = sensorReadingRepository.findDailyValuesByFarmIdAndSensorType(
+                farmId,
+                SensorType.SOIL_TEMPERATURE,
+                dayStart,
+                dayEnd
+        );
+        if (values.isEmpty()) {
+            return null;
+        }
+
+        BigDecimal min = values.stream().min(BigDecimal::compareTo).orElse(null);
+        BigDecimal max = values.stream().max(BigDecimal::compareTo).orElse(null);
+        BigDecimal sum = values.stream().reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal avg = sum.divide(BigDecimal.valueOf(values.size()), 1, RoundingMode.HALF_UP);
+
+        return new GrowthDiaryDetailResponse.Temperature(min, max, avg);
     }
 
     private String safeText(String value) {

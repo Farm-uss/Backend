@@ -1,12 +1,14 @@
 package com.example.practice.controller.device;
 
 import com.example.practice.common.config.TokenAuthFilter;
+import com.example.practice.common.error.AppException;
 import com.example.practice.dto.farm.CameraCaptureResponse;
 import com.example.practice.service.farm.FarmCameraService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -30,6 +32,9 @@ public class DeviceCameraController {
             @RequestParam(required = false) Long cameraId,
             @AuthenticationPrincipal TokenAuthFilter.UserPrincipal user
     ) {
+        if (user == null) {
+            throw new AppException(HttpStatus.UNAUTHORIZED, "authentication is required");
+        }
         return farmCameraService.captureDeviceCamera(deviceId, cameraId, user.id());
     }
 }
