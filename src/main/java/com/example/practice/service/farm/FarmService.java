@@ -138,6 +138,10 @@ public class FarmService {
                     Long deviceId = deviceRepository.findFirstByFarmId(farm.getId())
                             .map(Device::getDeviceId)
                             .orElse(null);
+                    Long cameraId = cameraRepository.findFirstByDevice_FarmIdAndPrimaryTrueOrderByCameraIdAsc(farm.getId())
+                            .or(() -> cameraRepository.findFirstByDevice_FarmIdOrderByPrimaryDescCameraIdAsc(farm.getId()))
+                            .map(Camera::getCameraId)
+                            .orElse(null);
 
                     // OWNER 이름 (기존 메서드 + userRepo)
                     String ownerName = farmMemberRepo.findByFarmIdAndRole(farm.getId(), FarmRole.OWNER)
@@ -207,6 +211,7 @@ public class FarmService {
                             .img(farm.getImagePath())
                             .createdDate(farm.getCreatedAt())
                             .deviceId(deviceId)
+                            .cameraId(cameraId)
                             .build();
                 })
                 .collect(Collectors.toList());  // ← 명시적 타입 변환
