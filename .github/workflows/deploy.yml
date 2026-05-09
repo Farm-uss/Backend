@@ -76,6 +76,10 @@ jobs:
             JWT_SECRET=${{ secrets.JWT_SECRET }}
             GOOGLE_MAP_API_KEY=${{ secrets.GOOGLE_MAP_API_KEY }}
             OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+            OPENWEATHER_API_KEY=${{ secrets.OPENWEATHER_API_KEY }}
+            KAKAO_CLIENT_ID=${{ secrets.KAKAO_CLIENT_ID }}
+            KAKAO_CLIENT_SECRET=${{ secrets.KAKAO_CLIENT_SECRET }}
+            KAKAO_REDIRECT_URI=${{ secrets.KAKAO_REDIRECT_URI }}
             SWAGGER_SERVER_URL=${{ secrets.SWAGGER_SERVER_URL }}
             GDD_SERVICE_KEY=${{ secrets.GDD_SERVICE_KEY }}
             GDD_SCHEDULER_CRON=${{ secrets.GDD_SCHEDULER_CRON }}
@@ -113,6 +117,10 @@ jobs:
                   - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
                   - JWT_SECRET=${JWT_SECRET}
                   - GOOGLE_MAP_API_KEY=${GOOGLE_MAP_API_KEY}
+                  - OPENWEATHER_API_KEY=${OPENWEATHER_API_KEY}
+                  - KAKAO_CLIENT_ID=${KAKAO_CLIENT_ID}
+                  - KAKAO_CLIENT_SECRET=${KAKAO_CLIENT_SECRET}
+                  - KAKAO_REDIRECT_URI=${KAKAO_REDIRECT_URI}
                   - SWAGGER_SERVER_URL=${SWAGGER_SERVER_URL}
                   - GDD_SERVICE_KEY=${GDD_SERVICE_KEY}
                   - GDD_SCHEDULER_CRON=${GDD_SCHEDULER_CRON}

@@ -7,6 +7,7 @@ import com.example.practice.entity.schedule.ConditionScheduleRule;
 import com.example.practice.entity.schedule.ScheduleType;
 import com.example.practice.entity.schedule.TimeScheduleRule;
 import com.example.practice.repository.schedule.AutomationScheduleRepository;
+import com.example.practice.repository.schedule.ScheduleExecutionHistoryRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -23,6 +24,8 @@ public class ScheduleCommandService {
 
     private final AutomationScheduleRepository scheduleRepository;
     private final ScheduleValidator scheduleValidator;
+    private final ScheduleExecutionHistoryRepository scheduleExecutionHistoryRepository;
+
 
     public TimeScheduleResponse createTimeSchedule(CreateTimeScheduleRequest request) {
         scheduleValidator.validateCreateTimeSchedule(request);
@@ -208,8 +211,10 @@ public class ScheduleCommandService {
 
     public void delete(Long scheduleId) {
         AutomationSchedule schedule = getSchedule(scheduleId);
+        scheduleExecutionHistoryRepository.deleteAllBySchedule_ScheduleId(scheduleId);
         scheduleRepository.delete(schedule);
     }
+
 
     private AutomationSchedule getSchedule(Long scheduleId) {
         return scheduleRepository.findByScheduleId(scheduleId)
