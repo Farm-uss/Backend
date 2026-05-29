@@ -92,6 +92,45 @@ public class VisionInferenceService {
     );
 
     @Transactional
+    public VisionInferenceCheckResponse inferDiseaseFromLatestCapture(
+            Long farmId,
+            Long cropsId,
+            Long userId
+    ) {
+        if (!farmMemberRepository.existsByFarmIdAndUserId(farmId, userId)) {
+            throw new AppException(HttpStatus.FORBIDDEN, "farm access denied");
+        }
+
+        ImageCapture latestCapture = imageCaptureRepository.findLatestByFarmId(farmId)
+                .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, "no captured image found for farm"));
+
+        Crops crop = cropsRepository.findByFarmIdAndCropsIdWithGrowthStandard(farmId, cropsId)
+                .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, "crops not found in farm"));
+        Integer cropCode = parseCropCode(crop);
+
+        byte[] imageBytes = latestCapture.getImagePath().startsWith("/")
+                ? readLocalImage(latestCapture.getImagePath())
+                : readRemoteImage(latestCapture.getImagePath());
+
+        String filename = filenameFromPath(latestCapture.getImagePath());
+
+        PreparedInferenceContext prepared = prepareCapturedInference(
+                crop,
+                imageBytes,
+                filename,
+                MediaType.IMAGE_JPEG_VALUE,
+                latestCapture.getCameraId(),
+                latestCapture.getCaptureId(),
+                TASK_DISEASE_CLASSIFICATION,
+                cropCode,
+                latestCapture.getCapturedAt()
+        );
+        VisionInference inference = saveVisionInference(prepared.uploadedImage(), prepared.aiResponse());
+        DiseaseCheckData data = toCheckData(prepared.uploadedImage(), inference, prepared.aiResponse());
+        return VisionInferenceCheckResponse.ok(data);
+    }
+
+    @Transactional
     public VisionInferenceCheckResponse inferDiseaseAndSave(
             Long farmId,
             Long cropsId,
@@ -840,6 +879,52 @@ public class VisionInferenceService {
             throw new AppException(HttpStatus.INTERNAL_SERVER_ERROR, "failed to save capture image");
         }
         return target.getAbsolutePath();
+    }
+
+    private byte[] readLocalImage(String imagePath) {
+        try {
+            return java.nio.file.Files.readAllBytes(java.nio.file.Path.of(imagePath));
+        } catch (IOException e) {
+            throw new AppException(HttpStatus.BAD_GATEWAY, "failed to read captured image");
+        }
+    }
+
+    private byte[] readRemoteImage(String imageUrl) {
+        try {
+            ByteArrayResource resource = webClientBuilder.build()
+                    .get()
+                    .uri(imageUrl)
+                    .retrieve()
+                    .bodyToMono(ByteArrayResource.class)
+                    .timeout(Duration.ofMillis(Math.max(aiTimeoutMs, 1000)))
+                    .onErrorMap(TimeoutException.class,
+                            ex -> new AppException(HttpStatus.GATEWAY_TIMEOUT, "captured image download timeout"))
+                    .onErrorMap(WebClientRequestException.class,
+                            ex -> new AppException(HttpStatus.SERVICE_UNAVAILABLE, "captured image is unavailable"))
+                    .onErrorMap(WebClientResponseException.class,
+                            ex -> new AppException(HttpStatus.BAD_GATEWAY,
+                                    "captured image download error: " + ex.getStatusCode().value()))
+                    .block();
+
+            if (resource == null || resource.contentLength() == 0) {
+                throw new AppException(HttpStatus.BAD_GATEWAY, "empty captured image");
+            }
+            return resource.getByteArray();
+        } catch (AppException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new AppException(HttpStatus.BAD_GATEWAY, "failed to download captured image");
+        }
+    }
+
+    private String filenameFromPath(String path) {
+        if (path == null || path.isBlank()) {
+            return "capture.jpg";
+        }
+        String normalized = path.contains("?") ? path.substring(0, path.indexOf('?')) : path;
+        int slash = normalized.lastIndexOf('/');
+        String name = slash >= 0 ? normalized.substring(slash + 1) : normalized;
+        return name.isBlank() ? "capture.jpg" : name;
     }
 
     private byte[] readUploadedImage(MultipartFile image) {
