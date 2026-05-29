@@ -45,12 +45,6 @@ public class FarmCameraService {
     @Value("${file.upload-dir}")
     private String uploadDir;
 
-    @Value("${camera.stream.playback-base-url:}")
-    private String playbackBaseUrl;
-
-    @Value("${camera.stream.ttl-minutes:60}")
-    private long ttlMinutes;
-
     @Value("${camera.capture.timeout-ms:10000}")
     private long captureTimeoutMs;
 
@@ -64,18 +58,12 @@ public class FarmCameraService {
                 .or(() -> cameraRepository.findFirstByDevice_FarmIdOrderByPrimaryDescCameraIdAsc(farmId))
                 .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, "camera not configured for farm"));
 
-        if (playbackBaseUrl == null || playbackBaseUrl.isBlank()) {
-            throw new AppException(HttpStatus.NOT_FOUND, "camera stream not configured for farm");
-        }
-
-        OffsetDateTime expiresAt = OffsetDateTime.now(ZoneOffset.UTC).plusMinutes(Math.max(ttlMinutes, 1));
-        String streamUrl = buildStreamUrl(camera.getStreamKey(), camera.getStreamProtocol());
+        String streamUrl = buildMjpegStreamUrl(camera.getCaptureEndpoint());
         return new CameraStreamResponse(
                 camera.getCameraId(),
                 camera.getName(),
                 streamUrl,
-                camera.getStreamProtocol(),
-                expiresAt
+                "MJPEG"
         );
     }
 
@@ -150,16 +138,14 @@ public class FarmCameraService {
                 .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, "camera not configured for device"));
     }
 
-    private String buildStreamUrl(String streamKey, String protocol) {
-        String normalizedBaseUrl = playbackBaseUrl.endsWith("/")
-                ? playbackBaseUrl.substring(0, playbackBaseUrl.length() - 1)
-                : playbackBaseUrl;
-
-        if ("HLS".equalsIgnoreCase(protocol)) {
-            return normalizedBaseUrl + "/" + streamKey + "/index.m3u8";
+    private String buildMjpegStreamUrl(String captureEndpoint) {
+        if (captureEndpoint == null || captureEndpoint.isBlank()) {
+            throw new AppException(HttpStatus.NOT_FOUND, "camera stream not configured");
         }
-
-        return normalizedBaseUrl + "/" + streamKey;
+        // captureEndpoint 예: http://192.168.45.135:8000/capture → /stream 으로 교체
+        int lastSlash = captureEndpoint.lastIndexOf('/');
+        String base = lastSlash >= 0 ? captureEndpoint.substring(0, lastSlash) : captureEndpoint;
+        return base + "/stream";
     }
 
     private byte[] requestCapture(String captureEndpoint) {
