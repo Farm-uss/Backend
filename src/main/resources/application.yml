@@ -2,8 +2,3 @@ spring:
   profiles:
     active: local # 기본은 로컬, 서버 배포 시에만 dev로 실행
 
-kakao:
-  client-id: c448607a3308560b131aee9a68840d43
-  client-secret:
-  auth-base-url: https://kauth.kakao.com
-  api-base-url: https://kapi.kakao.com
