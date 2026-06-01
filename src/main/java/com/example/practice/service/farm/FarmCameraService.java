@@ -24,6 +24,10 @@ import org.springframework.web.reactive.function.client.WebClientResponseExcepti
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.nio.file.Files;
 import java.time.Duration;
 import java.time.OffsetDateTime;
@@ -136,6 +140,47 @@ public class FarmCameraService {
         return cameraRepository.findFirstByDevice_DeviceIdAndPrimaryTrueOrderByCameraIdAsc(deviceId)
                 .or(() -> cameraRepository.findFirstByDevice_DeviceIdOrderByPrimaryDescCameraIdAsc(deviceId))
                 .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, "camera not configured for device"));
+    }
+
+    public void proxyFarmCameraStream(Long farmId, Long userId, OutputStream outputStream) {
+        if (!farmMemberRepository.existsByFarmIdAndUserId(farmId, userId)) {
+            throw new AppException(HttpStatus.FORBIDDEN, "farm access denied");
+        }
+
+        Camera camera = cameraRepository.findFirstByDevice_FarmIdAndPrimaryTrueOrderByCameraIdAsc(farmId)
+                .or(() -> cameraRepository.findFirstByDevice_FarmIdOrderByPrimaryDescCameraIdAsc(farmId))
+                .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, "camera not configured for farm"));
+
+        String streamUrl = buildMjpegStreamUrl(camera.getCaptureEndpoint());
+
+        HttpURLConnection conn = null;
+        try {
+            conn = (HttpURLConnection) new URL(streamUrl).openConnection();
+            conn.setConnectTimeout(5000);
+            conn.setReadTimeout(0);
+            conn.connect();
+
+            if (conn.getResponseCode() != HttpURLConnection.HTTP_OK) {
+                throw new AppException(HttpStatus.BAD_GATEWAY, "camera stream unavailable");
+            }
+
+            try (InputStream in = conn.getInputStream()) {
+                byte[] buffer = new byte[4096];
+                int bytesRead;
+                while ((bytesRead = in.read(buffer)) != -1) {
+                    outputStream.write(buffer, 0, bytesRead);
+                    outputStream.flush();
+                }
+            }
+        } catch (AppException e) {
+            throw e;
+        } catch (IOException e) {
+            // 클라이언트 연결 종료 시 정상 종료
+        } finally {
+            if (conn != null) {
+                conn.disconnect();
+            }
+        }
     }
 
     private String buildMjpegStreamUrl(String captureEndpoint) {
