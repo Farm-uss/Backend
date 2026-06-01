@@ -463,7 +463,7 @@ public class VisionInferenceService {
                 bodyBuilder.part("crop_code", cropCode);
             }
 
-            JsonNode rawResponse = webClientBuilder.baseUrl(aiBaseUrl).build()
+            JsonNode rawResponse = webClientBuilder.clone().baseUrl(aiBaseUrl).build()
                     .post()
                     .uri(aiPredictPath)
                     .contentType(MediaType.MULTIPART_FORM_DATA)
@@ -891,7 +891,7 @@ public class VisionInferenceService {
 
     private byte[] readRemoteImage(String imageUrl) {
         try {
-            ByteArrayResource resource = webClientBuilder.build()
+            ByteArrayResource resource = WebClient.create()
                     .get()
                     .uri(imageUrl)
                     .retrieve()
