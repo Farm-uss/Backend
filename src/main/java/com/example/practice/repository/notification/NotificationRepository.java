@@ -47,4 +47,11 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
                                   @Param("from") OffsetDateTime from);
 
     long countByUserId(Long userId);
+
+    @Modifying
+    @Query("DELETE FROM Notification n WHERE n.userId = :userId AND n.isRead = true")
+    void deleteAllByUserIdAndIsRead(@Param("userId") Long userId, boolean isRead);
+
+    // 전체 삭제용
+    void deleteAllByUserId(Long userId);
 }

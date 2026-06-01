@@ -50,6 +50,28 @@ public class NotificationService {
         return notificationRepository.countRecentNotifications(userId, tenMinutesAgo);
     }
 
+    // NotificationService에 추가
+
+    // 단건 삭제
+    @Transactional
+    public void deleteNotification(Long notificationId, Long userId) {
+        Notification notification = notificationRepository.findByIdAndUserId(notificationId, userId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않거나 본인 알림이 아닙니다."));
+        notificationRepository.delete(notification);
+    }
+
+    // 전체 삭제
+    @Transactional
+    public void deleteAllNotifications(Long userId) {
+        notificationRepository.deleteAllByUserId(userId);
+    }
+
+    // 읽은 알림만 삭제
+    @Transactional
+    public void deleteReadNotifications(Long userId) {
+        notificationRepository.deleteAllByUserIdAndIsRead(userId, true);
+    }
+
     @Transactional
     public void markAllAsRead(Long userId) {
         notificationRepository.markAllAsRead(userId);
