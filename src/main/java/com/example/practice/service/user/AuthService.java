@@ -18,13 +18,13 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
-
 import java.security.SecureRandom;
 import java.time.OffsetDateTime;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -36,14 +36,19 @@ public class AuthService {
     private final RestTemplate restTemplate;
     private final KakaoProperties kakaoProperties;
 
-
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
     private final SecureRandom random = new SecureRandom();
 
-    private static final int TOKEN_BYTES = 48; // 64~80 chars 정도
+    private static final int TOKEN_BYTES = 48;
     private static final int TOKEN_TTL_DAYS = 7;
 
-    private String exchangeCodeForAccessToken(String code) {
+    private static final Set<String> ALLOWED_KAKAO_REDIRECT_URIS = Set.of(
+            "http://localhost:5173/oauth/kakao",
+            "https://farmus.io.kr/oauth/kakao",
+            "https://farmus.netlify.app/oauth/kakao"
+    );
+
+    private String exchangeCodeForAccessToken(String code, String redirectUri) {
         String tokenUrl = kakaoProperties.getAuthBaseUrl() + "/oauth/token";
 
         HttpHeaders headers = new HttpHeaders();
@@ -52,7 +57,7 @@ public class AuthService {
         MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
         body.add("grant_type", "authorization_code");
         body.add("client_id", kakaoProperties.getClientId());
-        body.add("redirect_uri", kakaoProperties.getRedirectUri());
+        body.add("redirect_uri", redirectUri);
         body.add("code", code);
 
         if (kakaoProperties.getClientSecret() != null && !kakaoProperties.getClientSecret().isBlank()) {
@@ -74,7 +79,6 @@ public class AuthService {
         }
 
         return responseBody.get("access_token").toString();
-
     }
 
     private KakaoUserInfo fetchKakaoUserInfo(String kakaoAccessToken) {
@@ -183,12 +187,11 @@ public class AuthService {
         return userRepository.save(user);
     }
 
-
     private String buildS3ImageUrl(List<String> imageIds) {
         if (imageIds == null || imageIds.isEmpty()) return null;
 
         String firstId = imageIds.get(0).trim();
-        if (!firstId.matches("^[0-9]{1,10}$")) {  // 1~10자리 숫자만
+        if (!firstId.matches("^[0-9]{1,10}$")) {
             throw new AppException(HttpStatus.BAD_REQUEST, "invalid image ID");
         }
 
@@ -219,7 +222,6 @@ public class AuthService {
         );
     }
 
-
     @Transactional
     public AuthResponse login(LoginRequest req) {
         User user = userRepository.findByEmail(req.getEmail().trim().toLowerCase())
@@ -238,7 +240,15 @@ public class AuthService {
             throw new AppException(HttpStatus.BAD_REQUEST, "kakao code is required");
         }
 
-        String kakaoAccessToken = exchangeCodeForAccessToken(req.getCode());
+        if (req.getRedirectUri() == null || req.getRedirectUri().isBlank()) {
+            throw new AppException(HttpStatus.BAD_REQUEST, "kakao redirectUri is required");
+        }
+
+        if (!ALLOWED_KAKAO_REDIRECT_URIS.contains(req.getRedirectUri())) {
+            throw new AppException(HttpStatus.BAD_REQUEST, "invalid kakao redirectUri");
+        }
+
+        String kakaoAccessToken = exchangeCodeForAccessToken(req.getCode(), req.getRedirectUri());
 
         KakaoUserInfo kakaoUserInfo = fetchKakaoUserInfo(kakaoAccessToken);
 
@@ -246,8 +256,6 @@ public class AuthService {
 
         return issueTokens(user);
     }
-
-
 
     @Transactional(readOnly = true)
     public User authenticateByToken(String token) {
@@ -261,9 +269,8 @@ public class AuthService {
 
         if (authToken.getExpiresAt().isBefore(OffsetDateTime.now())) return null;
 
-        return authToken.getUser(); // 이제 Lazy 예외 안 남
+        return authToken.getUser();
     }
-
 
     @Transactional(readOnly = true)
     public RefreshResponse refresh(RefreshRequest req) {
@@ -289,7 +296,6 @@ public class AuthService {
             throw new AppException(HttpStatus.BAD_REQUEST, "refreshToken is required");
         }
 
-        // 토큰이 없더라도 "로그아웃 완료"처럼 처리하고 싶으면 orElseThrow 말고 deleteByToken 써도 됨
         AuthToken token = authTokenRepository.findByTokenWithUser(req.getRefreshToken())
                 .orElseThrow(() -> new AppException(HttpStatus.UNAUTHORIZED, "invalid refresh token"));
 
@@ -306,7 +312,6 @@ public class AuthService {
         userRepository.save(user);
         return imageUrl;
     }
-
 
     @Transactional(readOnly = true)
     public MeResponse me(Long userId) {
@@ -344,13 +349,9 @@ public class AuthService {
         );
     }
 
-
-
-
     private String generateToken() {
         byte[] bytes = new byte[TOKEN_BYTES];
         random.nextBytes(bytes);
-        // URL-safe
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 

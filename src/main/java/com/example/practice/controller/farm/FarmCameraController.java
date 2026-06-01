@@ -8,6 +8,8 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -15,6 +17,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 @Tag(name = "Farm Camera", description = "농장 카메라 스트리밍 API")
 @SecurityRequirement(name = "JWT")
@@ -32,6 +35,20 @@ public class FarmCameraController {
             @AuthenticationPrincipal TokenAuthFilter.UserPrincipal user
     ) {
         return farmCameraService.getFarmCameraStream(farmId, user.id());
+    }
+
+    @Operation(summary = "카메라 실시간 스트리밍 프록시", description = "Spring Boot 서버를 통해 라즈베리파이 MJPEG 스트림을 중계합니다.")
+    @GetMapping("/{farmId}/camera/stream-proxy")
+    public ResponseEntity<StreamingResponseBody> streamProxy(
+            @PathVariable Long farmId,
+            @AuthenticationPrincipal TokenAuthFilter.UserPrincipal user
+    ) {
+        StreamingResponseBody body = outputStream ->
+                farmCameraService.proxyFarmCameraStream(farmId, user.id(), outputStream);
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType("multipart/x-mixed-replace; boundary=frame"))
+                .body(body);
     }
 
     @Operation(summary = "카메라 캡처", description = "farm에 연결된 카메라에서 현재 이미지를 캡처해 저장합니다.")
