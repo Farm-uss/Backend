@@ -39,6 +39,7 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 
 
+
 @Service
 @Transactional
 @RequiredArgsConstructor
@@ -261,7 +262,7 @@ public class FarmService {
         scheduleExecutionHistoryRepository.deleteAllBySchedule_FarmId(farmId);
         automationScheduleRepository.deleteAllByFarmId(farmId);
 
-        notificationRepository.deleteAllByFarmId(farmId);
+        notificationRepository.deleteAllReadByUserId(farmId);
         farmInvitationRepository.deleteAllByFarmId(farmId);
 
         cameraRepository.deleteAllByDevice_FarmId(farmId);

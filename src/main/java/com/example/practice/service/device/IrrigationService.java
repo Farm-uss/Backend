@@ -84,6 +84,29 @@ public class IrrigationService {
      * PATCH /api/irrigation/{commandId}/ack?deviceId=1&success=true
      */
     @Transactional
+    public IrrigationResponse createCommand(Long deviceId, CommandType commandType, Integer durationSeconds) {
+        Device device = deviceRepository.findById(deviceId)
+                .orElseThrow(() -> new IllegalArgumentException("등록된 디바이스가 없습니다."));
+
+        DeviceCommand cmd;
+        if (commandType == CommandType.PUMP_ON) {
+            cmd = DeviceCommand.createWithDuration(
+                    device.getDeviceId(),
+                    commandType,
+                    durationSeconds
+            );
+        } else {
+            cmd = DeviceCommand.create(
+                    device.getDeviceId(),
+                    commandType
+            );
+        }
+
+        commandRepository.save(cmd);
+        return IrrigationResponse.from(cmd);
+    }
+
+    @Transactional
     public IrrigationResponse acknowledge(Long commandId, Long deviceId, boolean success) {
         DeviceCommand cmd = commandRepository.findById(commandId)
                 .orElseThrow(() -> new IllegalArgumentException(
