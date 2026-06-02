@@ -56,7 +56,6 @@ public class WebPushService {
                         escapeJson(title), escapeJson(body)
                 );
 
-                // ↓ 수정 - URL-safe Base64로 변환 후 사용
                 String p256dh = toUrlSafeBase64(sub.getP256dh());
                 String auth = toUrlSafeBase64(sub.getAuth());
 
