@@ -3,11 +3,11 @@ package com.example.practice.service.schedule;
 import com.example.practice.entity.device.CommandType;
 import com.example.practice.entity.device.SensorType;
 import com.example.practice.entity.schedule.AutomationSchedule;
-import com.example.practice.entity.schedule.ControlSystemType;
 import com.example.practice.entity.schedule.ExecutionStatus;
 import com.example.practice.entity.schedule.ScheduleType;
 import com.example.practice.repository.schedule.AutomationScheduleRepository;
 import com.example.practice.service.device.DeviceCommandService;
+import com.example.practice.service.device.IrrigationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,6 +16,7 @@ import java.math.BigDecimal;
 import java.time.DayOfWeek;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.List;
 
 @Service
@@ -28,11 +29,12 @@ public class ScheduleExecutionService {
     private final ScheduleHistoryService scheduleHistoryService;
     private final DeviceCommandService deviceCommandService;
     private final SensorValueQueryService sensorValueQueryService;
+    private final IrrigationService irrigationService;
 
     public void executeDueSchedules() {
         List<AutomationSchedule> schedules = scheduleRepository.findAll();
 
-        OffsetDateTime now = OffsetDateTime.now();
+        OffsetDateTime now = OffsetDateTime.now(ZoneId.of("Asia/Seoul"));
         DayOfWeek currentDay = now.getDayOfWeek();
         LocalTime currentTime = now.toLocalTime().withSecond(0).withNano(0);
 
@@ -162,24 +164,24 @@ public class ScheduleExecutionService {
     private void executeOnCommand(AutomationSchedule schedule) {
         switch (schedule.getControlSystemType()) {
             case CAMERA -> {
-                // TODO: 카메라 스케줄 실행 흐름이 연결되면 캡처 서비스와 연동
                 throw new UnsupportedOperationException("카메라 실행 기능이 아직 연결되지 않았습니다.");
             }
 
             case LIGHTING -> deviceCommandService.createCommand(CommandType.LED_ON);
 
-            case IRRIGATION -> {
-                // TODO: 관수 서비스 추가되면 연결
-                throw new UnsupportedOperationException("관수 실행 기능이 아직 연결되지 않았습니다.");
-            }
+            case IRRIGATION -> irrigationService.createCommand(
+                    1L,
+                    CommandType.PUMP_ON,
+                    schedule.getTimeRule() == null
+                            ? null
+                            : schedule.getTimeRule().getDurationMinutes() * 60
+            );
 
             case VENTILATION -> {
-                // TODO: 환기 서비스 추가되면 연결
                 throw new UnsupportedOperationException("환기 실행 기능이 아직 연결되지 않았습니다.");
             }
 
             case HEATING -> {
-                // TODO: 난방 서비스 추가되면 연결
                 throw new UnsupportedOperationException("난방 실행 기능이 아직 연결되지 않았습니다.");
             }
         }
@@ -188,24 +190,22 @@ public class ScheduleExecutionService {
     private void executeOffCommand(AutomationSchedule schedule) {
         switch (schedule.getControlSystemType()) {
             case CAMERA -> {
-                // TODO: 카메라 자동 복구/중지 흐름이 정의되면 연결
                 throw new UnsupportedOperationException("카메라 중지 기능이 아직 연결되지 않았습니다.");
             }
 
             case LIGHTING -> deviceCommandService.createCommand(CommandType.LED_OFF);
 
-            case IRRIGATION -> {
-                // TODO: 관수 중지 기능 추가되면 연결
-                throw new UnsupportedOperationException("관수 중지 기능이 아직 연결되지 않았습니다.");
-            }
+            case IRRIGATION -> irrigationService.createCommand(
+                    1L,
+                    CommandType.PUMP_OFF,
+                    null
+            );
 
             case VENTILATION -> {
-                // TODO: 환기 중지 기능 추가되면 연결
                 throw new UnsupportedOperationException("환기 중지 기능이 아직 연결되지 않았습니다.");
             }
 
             case HEATING -> {
-                // TODO: 난방 중지 기능 추가되면 연결
                 throw new UnsupportedOperationException("난방 중지 기능이 아직 연결되지 않았습니다.");
             }
         }
@@ -220,7 +220,6 @@ public class ScheduleExecutionService {
             case IRRIGATION -> prefix + " 관수 스케줄 실행 성공";
             case VENTILATION -> prefix + " 환기 스케줄 실행 성공";
             case HEATING -> prefix + " 난방 스케줄 실행 성공";
-
         };
     }
 
@@ -231,8 +230,6 @@ public class ScheduleExecutionService {
             case IRRIGATION -> "조건 회복으로 관수 중지 명령 전송";
             case VENTILATION -> "조건 회복으로 환기 중지 명령 전송";
             case HEATING -> "조건 회복으로 난방 중지 명령 전송";
-
-
         };
     }
 
