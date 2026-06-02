@@ -65,6 +65,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/sensor-readings/**").permitAll()
                         .requestMatchers("/api/sensors/**").permitAll()
                                 .requestMatchers("/api/v1/crops-recommend/**").permitAll()
+                                .requestMatchers("/api/irrigation/**").permitAll()
+
 
 
                 // 나머지는 JWT 인증

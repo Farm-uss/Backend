@@ -14,6 +14,7 @@ import com.example.practice.dto.schedule.UpdateTimeScheduleRequest;
 import com.example.practice.service.schedule.ScheduleCommandService;
 import com.example.practice.service.schedule.ScheduleQueryService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -22,6 +23,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @Tag(name = "schedules", description = "자동화 스케줄 API")
+@SecurityRequirement(name = "JWT")
 @RestController
 @RequestMapping("/api/schedules")
 @RequiredArgsConstructor

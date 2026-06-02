@@ -69,7 +69,7 @@ public class NotificationService {
     // 읽은 알림만 삭제
     @Transactional
     public void deleteReadNotifications(Long userId) {
-        notificationRepository.deleteAllByUserIdAndIsRead(userId, true);
+        notificationRepository.deleteAllReadByUserId(userId);
     }
 
     @Transactional
