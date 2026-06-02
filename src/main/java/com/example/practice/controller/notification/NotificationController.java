@@ -1,5 +1,6 @@
 package com.example.practice.controller.notification;
 
+import com.example.practice.common.config.TokenAuthFilter;
 import com.example.practice.dto.notification.NotificationResponse;
 import com.example.practice.dto.notification.NotificationUnreadCountResponse;
 import com.example.practice.service.notification.NotificationService;
@@ -8,6 +9,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.*;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -48,5 +50,29 @@ public class NotificationController {
             @AuthenticationPrincipal UserPrincipal user
     ) {
         notificationService.markAllAsRead(user.id());
+    }
+
+    @DeleteMapping("/{notificationId}")
+    public ResponseEntity<Void> deleteNotification(
+            @PathVariable Long notificationId,
+            @AuthenticationPrincipal TokenAuthFilter.UserPrincipal principal) {
+        notificationService.deleteNotification(notificationId, principal.id());
+        return ResponseEntity.noContent().build();
+    }
+
+    // 전체 삭제
+    @DeleteMapping
+    public ResponseEntity<Void> deleteAllNotifications(
+            @AuthenticationPrincipal TokenAuthFilter.UserPrincipal principal) {
+        notificationService.deleteAllNotifications(principal.id());
+        return ResponseEntity.noContent().build();
+    }
+
+    // 읽은 알림만 삭제
+    @DeleteMapping("/read")
+    public ResponseEntity<Void> deleteReadNotifications(
+            @AuthenticationPrincipal TokenAuthFilter.UserPrincipal principal) {
+        notificationService.deleteReadNotifications(principal.id());
+        return ResponseEntity.noContent().build();
     }
 }
