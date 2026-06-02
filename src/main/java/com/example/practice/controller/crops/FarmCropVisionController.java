@@ -57,6 +57,23 @@ public class FarmCropVisionController {
         );
     }
 
+    @Operation(summary = "최근 캡처 사진으로 병해충 추론", description = "DB에 저장된 가장 최근 캡처 이미지로 병해충 추론 후 저장합니다.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "추론 및 저장 성공"),
+            @ApiResponse(responseCode = "404", description = "캡처 이미지 없음"),
+            @ApiResponse(responseCode = "502", description = "AI 서버 응답 오류"),
+            @ApiResponse(responseCode = "503", description = "AI 서버 연결 실패"),
+            @ApiResponse(responseCode = "504", description = "AI 서버 타임아웃")
+    })
+    @PostMapping("/{farmId}/crops/{cropsId}/vision-inference/latest-capture")
+    public VisionInferenceCheckResponse inferFromLatestCapture(
+            @PathVariable Long farmId,
+            @PathVariable Long cropsId,
+            @AuthenticationPrincipal TokenAuthFilter.UserPrincipal user
+    ) {
+        return visionInferenceService.inferDiseaseFromLatestCapture(farmId, cropsId, user.id());
+    }
+
     @Operation(summary = "작물 이미지 생장 추론", description = "이미지를 AI 서버로 전달해 생장 추론 후 DB에 저장합니다.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "추론 및 저장 성공"),

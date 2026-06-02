@@ -11,4 +11,6 @@ public interface    DeviceCommandRepository extends JpaRepository<DeviceCommand,
     // 라즈베리파이가 폴링할 때 사용 - PENDING 명령 목록
     List<DeviceCommand> findAllByDeviceIdAndStatusOrderByCreatedAtAsc(
             Long deviceId, CommandStatus status);
+
+    void deleteAllByDeviceIdIn(List<Long> deviceIds);
 }

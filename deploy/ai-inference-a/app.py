@@ -2,10 +2,14 @@ import os
 import ast
 import datetime
 from io import BytesIO
+from typing import Optional
 
+import cv2
 import numpy as np
 import torch
 import torch.nn as nn
+import albumentations as A
+from albumentations.pytorch import ToTensorV2
 from PIL import Image
 from torchvision import transforms
 from torchvision.models import resnet50
@@ -56,21 +60,34 @@ for crop in sorted(CLS_DICT.keys()):
     model.to(device).eval()
     models[crop] = model
 
-disease_transform = transforms.Compose([
-    transforms.Resize((256, 256)),
-    transforms.ToTensor(),
-    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+disease_transform = A.Compose([
+    A.Normalize(
+        mean=[0.485, 0.456, 0.406],
+        std=[0.229, 0.224, 0.225],
+        max_pixel_value=255.0,
+        p=1.0,
+    ),
+    ToTensorV2(),
 ])
 
 
-def decode_rgb(image_bytes):
+def decode_disease_image(image_bytes):
+    arr = np.frombuffer(image_bytes, np.uint8)
+    img_bgr = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+    if img_bgr is None:
+        raise ValueError("invalid disease image")
+    return img_bgr
+
+
+def decode_growth_image(image_bytes):
     pil = Image.open(BytesIO(image_bytes)).convert("RGB")
     return np.array(pil)
 
 
-def preprocess(img_rgb):
-    pil = Image.fromarray(img_rgb)
-    return disease_transform(pil).unsqueeze(0).to(device)
+def preprocess_disease(img_bgr):
+    resized = cv2.resize(img_bgr, (256, 256))
+    tensor = disease_transform(image=resized)["image"].unsqueeze(0)
+    return tensor.to(device)
 
 
 GROWTH_MODELS = {}
@@ -124,7 +141,7 @@ def health():
     }
 
 
-def parse_crop_code(crop_code: str | None, task_name: str):
+def parse_crop_code(crop_code: Optional[str], task_name: str):
     if crop_code is None:
         return None, JSONResponse(status_code=400, content={"error": f"crop_code is required for {task_name}"})
     try:
@@ -143,11 +160,10 @@ async def predict(
     try:
         _ = capture_id
         data = await image.read()
-        img_rgb = decode_rgb(data)
-
         ttype = (task_type or "DISEASE_CLASSIFICATION").strip().upper()
 
         if ttype == "GROWTH_MEASUREMENT":
+            img_rgb = decode_growth_image(data)
             ccode, error = parse_crop_code(crop_code, "GROWTH_MEASUREMENT")
             if error is not None:
                 return error
@@ -212,7 +228,8 @@ async def predict(
         if ccode not in models:
             return JSONResponse(status_code=400, content={"error": f"unsupported crop_code: {ccode}"})
 
-        x = preprocess(img_rgb)
+        img_bgr = decode_disease_image(data)
+        x = preprocess_disease(img_bgr)
         with torch.no_grad():
             logits = models[ccode](x)[0]
             probs = torch.softmax(logits, dim=0).detach().cpu().numpy()

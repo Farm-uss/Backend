@@ -15,4 +15,6 @@ public interface DeviceRepository extends JpaRepository<Device, Long> {
     boolean existsByDeviceUuid(String deviceUuid);
     Optional<Device> findByFarmId(Long farmId);
     Optional<Device> findFirstByFarmId(Long farmId);
+
+    void deleteAllByFarmId(Long farmId);
 }

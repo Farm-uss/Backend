@@ -5,10 +5,12 @@ import com.example.practice.dto.farm.CameraCaptureResponse;
 import com.example.practice.dto.farm.CameraStreamResponse;
 import com.example.practice.entity.crops.ImageCapture;
 import com.example.practice.entity.device.Camera;
+import com.example.practice.entity.device.Device;
 import com.example.practice.repository.crops.ImageCaptureRepository;
 import com.example.practice.repository.device.CameraRepository;
 import com.example.practice.repository.farm.FarmMemberRepository;
 import com.example.practice.service.aws.AwsS3Service;
+import com.example.practice.service.device.DeviceService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
@@ -22,6 +24,10 @@ import org.springframework.web.reactive.function.client.WebClientResponseExcepti
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.nio.file.Files;
 import java.time.Duration;
 import java.time.OffsetDateTime;
@@ -37,16 +43,11 @@ public class FarmCameraService {
     private final CameraRepository cameraRepository;
     private final ImageCaptureRepository imageCaptureRepository;
     private final AwsS3Service awsS3Service;
+    private final DeviceService deviceService;
     private final WebClient.Builder webClientBuilder;
 
     @Value("${file.upload-dir}")
     private String uploadDir;
-
-    @Value("${camera.stream.playback-base-url:}")
-    private String playbackBaseUrl;
-
-    @Value("${camera.stream.ttl-minutes:60}")
-    private long ttlMinutes;
 
     @Value("${camera.capture.timeout-ms:10000}")
     private long captureTimeoutMs;
@@ -61,18 +62,12 @@ public class FarmCameraService {
                 .or(() -> cameraRepository.findFirstByDevice_FarmIdOrderByPrimaryDescCameraIdAsc(farmId))
                 .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, "camera not configured for farm"));
 
-        if (playbackBaseUrl == null || playbackBaseUrl.isBlank()) {
-            throw new AppException(HttpStatus.NOT_FOUND, "camera stream not configured for farm");
-        }
-
-        OffsetDateTime expiresAt = OffsetDateTime.now(ZoneOffset.UTC).plusMinutes(Math.max(ttlMinutes, 1));
-        String streamUrl = buildStreamUrl(camera.getStreamKey(), camera.getStreamProtocol());
+        String streamUrl = buildMjpegStreamUrl(camera.getCaptureEndpoint());
         return new CameraStreamResponse(
                 camera.getCameraId(),
                 camera.getName(),
                 streamUrl,
-                camera.getStreamProtocol(),
-                expiresAt
+                "MJPEG"
         );
     }
 
@@ -82,16 +77,25 @@ public class FarmCameraService {
             throw new AppException(HttpStatus.FORBIDDEN, "farm access denied");
         }
 
-        return captureCameraInternal(farmId, cameraId);
+        return captureCameraInternal(resolveCamera(farmId, cameraId));
+    }
+
+    @Transactional
+    public CameraCaptureResponse captureDeviceCamera(Long deviceId, Long cameraId, Long userId) {
+        Device device = deviceService.findById(deviceId);
+        if (!farmMemberRepository.existsByFarmIdAndUserId(device.getFarmId(), userId)) {
+            throw new AppException(HttpStatus.FORBIDDEN, "farm access denied");
+        }
+
+        return captureCameraInternal(resolveCameraByDevice(deviceId, cameraId));
     }
 
     @Transactional
     public CameraCaptureResponse captureFarmCameraForSchedule(Long farmId, Long cameraId) {
-        return captureCameraInternal(farmId, cameraId);
+        return captureCameraInternal(resolveCamera(farmId, cameraId));
     }
 
-    private CameraCaptureResponse captureCameraInternal(Long farmId, Long cameraId) {
-        Camera camera = resolveCamera(farmId, cameraId);
+    private CameraCaptureResponse captureCameraInternal(Camera camera) {
         if (camera.getCaptureEndpoint() == null || camera.getCaptureEndpoint().isBlank()) {
             throw new AppException(HttpStatus.NOT_FOUND, "camera capture endpoint not configured");
         }
@@ -127,16 +131,66 @@ public class FarmCameraService {
                 .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, "camera not configured for farm"));
     }
 
-    private String buildStreamUrl(String streamKey, String protocol) {
-        String normalizedBaseUrl = playbackBaseUrl.endsWith("/")
-                ? playbackBaseUrl.substring(0, playbackBaseUrl.length() - 1)
-                : playbackBaseUrl;
-
-        if ("HLS".equalsIgnoreCase(protocol)) {
-            return normalizedBaseUrl + "/" + streamKey + "/index.m3u8";
+    private Camera resolveCameraByDevice(Long deviceId, Long cameraId) {
+        if (cameraId != null) {
+            return cameraRepository.findByCameraIdAndDevice_DeviceId(cameraId, deviceId)
+                    .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, "camera not found in device"));
         }
 
-        return normalizedBaseUrl + "/" + streamKey;
+        return cameraRepository.findFirstByDevice_DeviceIdAndPrimaryTrueOrderByCameraIdAsc(deviceId)
+                .or(() -> cameraRepository.findFirstByDevice_DeviceIdOrderByPrimaryDescCameraIdAsc(deviceId))
+                .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, "camera not configured for device"));
+    }
+
+    public void proxyFarmCameraStream(Long farmId, Long userId, OutputStream outputStream) {
+        if (!farmMemberRepository.existsByFarmIdAndUserId(farmId, userId)) {
+            throw new AppException(HttpStatus.FORBIDDEN, "farm access denied");
+        }
+
+        Camera camera = cameraRepository.findFirstByDevice_FarmIdAndPrimaryTrueOrderByCameraIdAsc(farmId)
+                .or(() -> cameraRepository.findFirstByDevice_FarmIdOrderByPrimaryDescCameraIdAsc(farmId))
+                .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, "camera not configured for farm"));
+
+        String streamUrl = buildMjpegStreamUrl(camera.getCaptureEndpoint());
+
+        HttpURLConnection conn = null;
+        try {
+            conn = (HttpURLConnection) new URL(streamUrl).openConnection();
+            conn.setConnectTimeout(5000);
+            conn.setReadTimeout(0);
+            conn.connect();
+
+            if (conn.getResponseCode() != HttpURLConnection.HTTP_OK) {
+                throw new AppException(HttpStatus.BAD_GATEWAY, "camera stream unavailable");
+            }
+
+            try (InputStream in = conn.getInputStream()) {
+                byte[] buffer = new byte[4096];
+                int bytesRead;
+                while ((bytesRead = in.read(buffer)) != -1) {
+                    outputStream.write(buffer, 0, bytesRead);
+                    outputStream.flush();
+                }
+            }
+        } catch (AppException e) {
+            throw e;
+        } catch (IOException e) {
+            // 클라이언트 연결 종료 시 정상 종료
+        } finally {
+            if (conn != null) {
+                conn.disconnect();
+            }
+        }
+    }
+
+    private String buildMjpegStreamUrl(String captureEndpoint) {
+        if (captureEndpoint == null || captureEndpoint.isBlank()) {
+            throw new AppException(HttpStatus.NOT_FOUND, "camera stream not configured");
+        }
+        // captureEndpoint 예: http://192.168.45.135:8000/capture → /stream 으로 교체
+        int lastSlash = captureEndpoint.lastIndexOf('/');
+        String base = lastSlash >= 0 ? captureEndpoint.substring(0, lastSlash) : captureEndpoint;
+        return base + "/stream";
     }
 
     private byte[] requestCapture(String captureEndpoint) {

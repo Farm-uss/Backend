@@ -4,12 +4,9 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 public record GrowthDiaryCardResponse(
+        int month,
+        int day,
         LocalDate date,
-        String thumbnailUrl,
-        Integer leafDelta,
-        Integer fruitDelta,
-        BigDecimal sizeDeltaCm,
-        String diseaseName,
-        BigDecimal diseaseConfidence
+        BigDecimal gdd
 ) {
 }

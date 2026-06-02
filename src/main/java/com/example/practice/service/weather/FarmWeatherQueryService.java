@@ -69,16 +69,25 @@ public class FarmWeatherQueryService {
 
     private boolean isCacheValid(List<WeatherHourly> cached) {
 
-        if (cached.isEmpty()) return false;
+        if (cached == null || cached.isEmpty()) {
+            return false;
+        }
 
         OffsetDateTime fetchedAt = cached.get(0).getFetchedAt();
+        if (fetchedAt == null) {
+            return false;
+        }
 
-        long cacheMinutes = openWeatherProperties.getCacheMinutes();
+        Long cacheMinutes = openWeatherProperties.getCacheMinutes();
+        if (cacheMinutes == null || cacheMinutes <= 0) {
+            cacheMinutes = 30L;
+        }
 
         return fetchedAt.isAfter(
                 OffsetDateTime.now().minusMinutes(cacheMinutes)
         );
     }
+
 
     private HourlyWeatherItemDto toDto(WeatherHourly w) {
 

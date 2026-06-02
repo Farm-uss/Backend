@@ -33,4 +33,5 @@ public class FarmSummary {
     private OffsetDateTime createdDate; // 생성 날짜
 
     private Long deviceId;
+    private Long cameraId;
 }

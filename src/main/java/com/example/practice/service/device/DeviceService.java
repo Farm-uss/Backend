@@ -32,7 +32,8 @@ public class DeviceService {
         return deviceRepository.findByDeviceUuid(request.getDeviceUuid())
                 .map(existing -> {
                     existing.moveFarm(request.getFarmId());
-                    return DeviceResponse.from(existing);
+                    Camera camera = findPrimaryCamera(existing);
+                    return DeviceResponse.from(existing, camera);
                 })
                 .orElseGet(() -> {
                     // 신규 등록일 때만 카메라 생성
@@ -109,6 +110,12 @@ public class DeviceService {
                 primary
         );
         return cameraRepository.save(camera);
+    }
+
+    private Camera findPrimaryCamera(Device device) {
+        return cameraRepository.findFirstByDevice_DeviceIdAndPrimaryTrueOrderByCameraIdAsc(device.getDeviceId())
+                .or(() -> cameraRepository.findFirstByDevice_DeviceIdOrderByPrimaryDescCameraIdAsc(device.getDeviceId()))
+                .orElse(null);
     }
 
     private String defaultCameraName(String deviceName) {

@@ -115,4 +115,6 @@ public interface AutomationScheduleRepository extends JpaRepository<AutomationSc
             @Param("thresholdValue") BigDecimal thresholdValue,
             @Param("autoStopWhenRecovered") boolean autoStopWhenRecovered
     );
+
+    void deleteAllByFarmId(Long farmId);
 }

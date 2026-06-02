@@ -1,13 +1,18 @@
 package com.example.practice.controller.crops;
 
+import com.example.practice.dto.crops.AiCropRecommendRequest;
+import com.example.practice.dto.crops.AiCropRecommendResponse;
 import com.example.practice.dto.crops.CropRecommendResponse;
 import com.example.practice.service.crops.CropRecommendService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -32,5 +37,13 @@ public class CropRecommendController {
     @Operation(summary = "작물 추천")
     public ResponseEntity<CropRecommendResponse> recommend(@RequestParam Long deviceId) {
         return ResponseEntity.ok(cropRecommendService.recommend(deviceId));
+    }
+
+    @PostMapping("/ai")
+    @Operation(summary = "AI 설문 기반 작물 추천")
+    public ResponseEntity<AiCropRecommendResponse> recommendByAi(
+            @Valid @RequestBody AiCropRecommendRequest request
+    ) {
+        return ResponseEntity.ok(cropRecommendService.recommendByAi(request));
     }
 }

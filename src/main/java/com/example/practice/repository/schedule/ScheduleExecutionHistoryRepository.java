@@ -11,4 +11,9 @@ public interface ScheduleExecutionHistoryRepository extends JpaRepository<Schedu
     List<ScheduleExecutionHistory> findAllBySchedule_ScheduleIdOrderByExecutedAtDesc(Long scheduleId);
 
     List<ScheduleExecutionHistory> findAllBySchedule_FarmIdOrderByExecutedAtDesc(Long farmId);
+
+    void deleteAllBySchedule_FarmId(Long farmId);
+
+    void deleteAllBySchedule_ScheduleId(Long scheduleId);
+
 }

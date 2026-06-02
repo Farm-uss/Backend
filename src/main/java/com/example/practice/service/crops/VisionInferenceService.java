@@ -57,6 +57,11 @@ public class VisionInferenceService {
     private static final String TASK_DISEASE_CLASSIFICATION = "DISEASE_CLASSIFICATION";
     private static final String TASK_GROWTH_MEASUREMENT = "GROWTH_MEASUREMENT";
     private static final BigDecimal GROWTH_CONFIDENCE_THRESHOLD = BigDecimal.valueOf(0.6);
+    private static final Map<Integer, Integer> DISEASE_TO_GROWTH_CROP_CODE = Map.of(
+            2, 6,
+            3, 4,
+            5, 5
+    );
 
     private final FarmMemberRepository farmMemberRepository;
     private final CropsRepository cropsRepository;
@@ -85,6 +90,45 @@ public class VisionInferenceService {
             "powdery_mildew", "a3",
             "rust", "a5"
     );
+
+    @Transactional
+    public VisionInferenceCheckResponse inferDiseaseFromLatestCapture(
+            Long farmId,
+            Long cropsId,
+            Long userId
+    ) {
+        if (!farmMemberRepository.existsByFarmIdAndUserId(farmId, userId)) {
+            throw new AppException(HttpStatus.FORBIDDEN, "farm access denied");
+        }
+
+        ImageCapture latestCapture = imageCaptureRepository.findLatestByFarmId(farmId)
+                .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, "no captured image found for farm"));
+
+        Crops crop = cropsRepository.findByFarmIdAndCropsIdWithGrowthStandard(farmId, cropsId)
+                .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, "crops not found in farm"));
+        Integer cropCode = parseCropCode(crop);
+
+        byte[] imageBytes = latestCapture.getImagePath().startsWith("/")
+                ? readLocalImage(latestCapture.getImagePath())
+                : readRemoteImage(latestCapture.getImagePath());
+
+        String filename = filenameFromPath(latestCapture.getImagePath());
+
+        PreparedInferenceContext prepared = prepareCapturedInference(
+                crop,
+                imageBytes,
+                filename,
+                MediaType.IMAGE_JPEG_VALUE,
+                latestCapture.getCameraId(),
+                latestCapture.getCaptureId(),
+                TASK_DISEASE_CLASSIFICATION,
+                cropCode,
+                latestCapture.getCapturedAt()
+        );
+        VisionInference inference = saveVisionInference(prepared.uploadedImage(), prepared.aiResponse());
+        DiseaseCheckData data = toCheckData(prepared.uploadedImage(), inference, prepared.aiResponse());
+        return VisionInferenceCheckResponse.ok(data);
+    }
 
     @Transactional
     public VisionInferenceCheckResponse inferDiseaseAndSave(
@@ -141,6 +185,67 @@ public class VisionInferenceService {
     }
 
     @Transactional
+    public DiseaseCheckData inferScheduledDiseaseAndSave(
+            Long farmId,
+            Long cropsId,
+            byte[] imageBytes,
+            String originalFilename,
+            String contentType,
+            Long cameraId,
+            Long captureId,
+            OffsetDateTime measuredAt
+    ) {
+        Crops crop = cropsRepository.findByFarmIdAndCropsIdWithGrowthStandard(farmId, cropsId)
+                .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, "crops not found in farm"));
+        Integer cropCode = parseCropCode(crop);
+
+        PreparedInferenceContext prepared = prepareCapturedInference(
+                crop,
+                imageBytes,
+                originalFilename,
+                contentType,
+                cameraId,
+                captureId,
+                TASK_DISEASE_CLASSIFICATION,
+                cropCode,
+                measuredAt
+        );
+        VisionInference inference = saveVisionInference(prepared.uploadedImage(), prepared.aiResponse());
+        return toCheckData(prepared.uploadedImage(), inference, prepared.aiResponse());
+    }
+
+    @Transactional
+    public GrowthCheckData inferScheduledGrowthAndSave(
+            Long farmId,
+            Long cropsId,
+            byte[] imageBytes,
+            String originalFilename,
+            String contentType,
+            Long cameraId,
+            Long captureId,
+            OffsetDateTime measuredAt
+    ) {
+        Crops crop = cropsRepository.findByFarmIdAndCropsIdWithGrowthStandard(farmId, cropsId)
+                .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, "crops not found in farm"));
+        Integer cropCode = parseScheduledGrowthCropCode(crop);
+
+        PreparedInferenceContext prepared = prepareCapturedInference(
+                crop,
+                imageBytes,
+                originalFilename,
+                contentType,
+                cameraId,
+                captureId,
+                TASK_GROWTH_MEASUREMENT,
+                cropCode,
+                measuredAt
+        );
+        VisionInference inference = saveVisionInference(prepared.uploadedImage(), prepared.aiResponse());
+        saveGrowthMeasurement(prepared.crop(), prepared.capturedAt(), prepared.aiResponse());
+        return toGrowthCheckData(prepared.uploadedImage(), inference, prepared.aiResponse());
+    }
+
+    @Transactional
     private PreparedInferenceContext prepareInference(
             Long farmId,
             Long cropsId,
@@ -185,6 +290,45 @@ public class VisionInferenceService {
         );
 
         return new PreparedInferenceContext(crop, capturedAt, uploadedImage, aiResponse);
+    }
+
+    private PreparedInferenceContext prepareCapturedInference(
+            Crops crop,
+            byte[] imageBytes,
+            String originalFilename,
+            String contentType,
+            Long cameraId,
+            Long captureId,
+            String taskType,
+            Integer cropCode,
+            OffsetDateTime measuredAt
+    ) {
+        if (imageBytes == null || imageBytes.length == 0) {
+            throw new AppException(HttpStatus.BAD_REQUEST, "image is required");
+        }
+
+        ImageCapture capturedImage = imageCaptureRepository.findById(captureId)
+                .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, "image capture not found"));
+        if (cameraId != null && capturedImage.getCameraId() != null && !capturedImage.getCameraId().equals(cameraId)) {
+            throw new AppException(HttpStatus.BAD_REQUEST, "cameraId does not match image capture");
+        }
+
+        String requestedTaskType = normalizeTaskType(taskType);
+        validateTaskInputs(requestedTaskType, cropCode);
+        AiPredictResponse aiResponse = callAiServer(
+                imageBytes,
+                originalFilename,
+                contentType,
+                capturedImage.getCaptureId(),
+                requestedTaskType,
+                cropCode
+        );
+
+        OffsetDateTime capturedAt = measuredAt == null ? capturedImage.getCapturedAt() : measuredAt;
+        if (capturedAt == null) {
+            capturedAt = OffsetDateTime.now(ZoneOffset.UTC);
+        }
+        return new PreparedInferenceContext(crop, capturedAt, capturedImage, aiResponse);
     }
 
     private VisionInference saveVisionInference(ImageCapture uploadedImage, AiPredictResponse aiResponse) {
@@ -319,7 +463,7 @@ public class VisionInferenceService {
                 bodyBuilder.part("crop_code", cropCode);
             }
 
-            JsonNode rawResponse = webClientBuilder.baseUrl(aiBaseUrl).build()
+            JsonNode rawResponse = webClientBuilder.clone().baseUrl(aiBaseUrl).build()
                     .post()
                     .uri(aiPredictPath)
                     .contentType(MediaType.MULTIPART_FORM_DATA)
@@ -678,6 +822,37 @@ public class VisionInferenceService {
         }
     }
 
+    private Integer parseScheduledGrowthCropCode(Crops crop) {
+        Integer diseaseCropCode = parseCropCode(crop);
+        Integer mappedCropCode = DISEASE_TO_GROWTH_CROP_CODE.get(diseaseCropCode);
+        if (mappedCropCode != null) {
+            return mappedCropCode;
+        }
+
+        String cropName = crop.getName() == null ? "" : crop.getName().trim().toLowerCase(Locale.ROOT);
+        if (cropName.contains("양배추") || cropName.contains("cabbage")) {
+            return 1;
+        }
+        if (cropName.contains("상추") || cropName.contains("lettuce")) {
+            return 2;
+        }
+        if (cropName.contains("배추") || cropName.contains("napa")) {
+            return 3;
+        }
+        if (cropName.contains("파프리카") || cropName.contains("paprika")) {
+            return 4;
+        }
+        if (cropName.contains("고추") || cropName.contains("pepper")) {
+            return 5;
+        }
+        if (cropName.contains("토마토") || cropName.contains("tomato")) {
+            return 6;
+        }
+
+        throw new AppException(HttpStatus.BAD_REQUEST,
+                "growth model cropCode is not supported for cropCode=" + diseaseCropCode);
+    }
+
     private record PreparedInferenceContext(
             Crops crop,
             OffsetDateTime capturedAt,
@@ -704,6 +879,52 @@ public class VisionInferenceService {
             throw new AppException(HttpStatus.INTERNAL_SERVER_ERROR, "failed to save capture image");
         }
         return target.getAbsolutePath();
+    }
+
+    private byte[] readLocalImage(String imagePath) {
+        try {
+            return java.nio.file.Files.readAllBytes(java.nio.file.Path.of(imagePath));
+        } catch (IOException e) {
+            throw new AppException(HttpStatus.BAD_GATEWAY, "failed to read captured image");
+        }
+    }
+
+    private byte[] readRemoteImage(String imageUrl) {
+        try {
+            ByteArrayResource resource = WebClient.create()
+                    .get()
+                    .uri(imageUrl)
+                    .retrieve()
+                    .bodyToMono(ByteArrayResource.class)
+                    .timeout(Duration.ofMillis(Math.max(aiTimeoutMs, 1000)))
+                    .onErrorMap(TimeoutException.class,
+                            ex -> new AppException(HttpStatus.GATEWAY_TIMEOUT, "captured image download timeout"))
+                    .onErrorMap(WebClientRequestException.class,
+                            ex -> new AppException(HttpStatus.SERVICE_UNAVAILABLE, "captured image is unavailable"))
+                    .onErrorMap(WebClientResponseException.class,
+                            ex -> new AppException(HttpStatus.BAD_GATEWAY,
+                                    "captured image download error: " + ex.getStatusCode().value()))
+                    .block();
+
+            if (resource == null || resource.contentLength() == 0) {
+                throw new AppException(HttpStatus.BAD_GATEWAY, "empty captured image");
+            }
+            return resource.getByteArray();
+        } catch (AppException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new AppException(HttpStatus.BAD_GATEWAY, "failed to download captured image");
+        }
+    }
+
+    private String filenameFromPath(String path) {
+        if (path == null || path.isBlank()) {
+            return "capture.jpg";
+        }
+        String normalized = path.contains("?") ? path.substring(0, path.indexOf('?')) : path;
+        int slash = normalized.lastIndexOf('/');
+        String name = slash >= 0 ? normalized.substring(slash + 1) : normalized;
+        return name.isBlank() ? "capture.jpg" : name;
     }
 
     private byte[] readUploadedImage(MultipartFile image) {
