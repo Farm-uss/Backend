@@ -3,6 +3,7 @@ package com.example.practice.service.aws;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.PutObjectRequest;
+import com.amazonaws.services.s3.model.S3Object;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -10,6 +11,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.net.URI;
 import java.util.UUID;
 
 @Service
@@ -49,5 +51,16 @@ public class AwsS3Service {
 
         amazonS3.putObject(new PutObjectRequest(bucket, key, new ByteArrayInputStream(bytes), metadata));
         return amazonS3.getUrl(bucket, key).toString();
+    }
+
+    public byte[] download(String s3Url) {
+        try {
+            String path = URI.create(s3Url).getPath(); // "/captures/uuid_filename.jpg"
+            String key = path.startsWith("/") ? path.substring(1) : path;
+            S3Object s3Object = amazonS3.getObject(bucket, key);
+            return s3Object.getObjectContent().readAllBytes();
+        } catch (IOException e) {
+            throw new RuntimeException("S3 다운로드 실패", e);
+        }
     }
 }
