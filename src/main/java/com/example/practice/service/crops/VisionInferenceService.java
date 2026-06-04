@@ -891,29 +891,15 @@ public class VisionInferenceService {
 
     private byte[] readRemoteImage(String imageUrl) {
         try {
-            ByteArrayResource resource = WebClient.create()
-                    .get()
-                    .uri(imageUrl)
-                    .retrieve()
-                    .bodyToMono(ByteArrayResource.class)
-                    .timeout(Duration.ofMillis(Math.max(aiTimeoutMs, 1000)))
-                    .onErrorMap(TimeoutException.class,
-                            ex -> new AppException(HttpStatus.GATEWAY_TIMEOUT, "captured image download timeout"))
-                    .onErrorMap(WebClientRequestException.class,
-                            ex -> new AppException(HttpStatus.SERVICE_UNAVAILABLE, "captured image is unavailable"))
-                    .onErrorMap(WebClientResponseException.class,
-                            ex -> new AppException(HttpStatus.BAD_GATEWAY,
-                                    "captured image download error: " + ex.getStatusCode().value()))
-                    .block();
-
-            if (resource == null || resource.contentLength() == 0) {
+            byte[] bytes = awsS3Service.download(imageUrl);
+            if (bytes == null || bytes.length == 0) {
                 throw new AppException(HttpStatus.BAD_GATEWAY, "empty captured image");
             }
-            return resource.getByteArray();
+            return bytes;
         } catch (AppException e) {
             throw e;
         } catch (Exception e) {
-            throw new AppException(HttpStatus.BAD_GATEWAY, "failed to download captured image");
+            throw new AppException(HttpStatus.BAD_GATEWAY, "failed to download captured image: " + e.getMessage());
         }
     }
 
