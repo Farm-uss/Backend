@@ -57,6 +57,7 @@ public class VisionInferenceService {
     private static final String TASK_DISEASE_CLASSIFICATION = "DISEASE_CLASSIFICATION";
     private static final String TASK_GROWTH_MEASUREMENT = "GROWTH_MEASUREMENT";
     private static final BigDecimal GROWTH_CONFIDENCE_THRESHOLD = BigDecimal.valueOf(0.6);
+    private static final BigDecimal DISEASE_CONFIDENCE_THRESHOLD = BigDecimal.valueOf(0.7);
     private static final Map<Integer, Integer> DISEASE_TO_GROWTH_CROP_CODE = Map.of(
             2, 6,
             3, 4,
@@ -366,7 +367,9 @@ public class VisionInferenceService {
 
     private DiseaseCheckData toCheckData(ImageCapture uploadedImage, VisionInference inference, AiPredictResponse aiResponse) {
         String normalizedDisease = normalizeDiseaseKey(aiResponse.disease(), aiResponse.label());
-        int diseaseStatus = isHealthyLike(normalizedDisease) ? 0 : 1;
+        boolean lowConfidence = aiResponse.confidence() == null
+                || aiResponse.confidence().compareTo(DISEASE_CONFIDENCE_THRESHOLD) < 0;
+        int diseaseStatus = isHealthyLike(normalizedDisease) || lowConfidence ? 0 : 1;
         int confidencePercent = toPercent(aiResponse.confidence());
 
         if (diseaseStatus == 0) {
