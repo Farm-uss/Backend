@@ -17,6 +17,7 @@ import com.example.practice.entity.crops.VisionInference;
 import com.example.practice.entity.device.SensorType;
 import com.example.practice.repository.crops.CropGddDailyRepository;
 import com.example.practice.repository.crops.CropsRepository;
+import com.example.practice.repository.crops.DiseaseInfoRepository;
 import com.example.practice.repository.crops.GrowthMeasurementRepository;
 import com.example.practice.repository.crops.VisionInferenceRepository;
 import com.example.practice.repository.device.SensorReadingRepository;
@@ -57,6 +58,7 @@ public class GddSummaryService {
     private final SensorReadingRepository sensorReadingRepository;
     private final FarmMemberRepository farmMemberRepository;
     private final SensorGddIngestionService sensorGddIngestionService;
+    private final DiseaseInfoRepository diseaseInfoRepository;
 
     @Transactional
     public GddSummaryResponse getSummary(Long farmId, Long cropsId, Long userId) {
@@ -428,12 +430,17 @@ public class GddSummaryService {
             return null;
         }
 
-        String diseaseName = safeText(inference.getLabel());
-        if (diseaseName == null) {
-            diseaseName = "unknown";
+        String label = safeText(inference.getLabel());
+        if (label == null) {
+            label = "unknown";
         }
 
-        String status = Boolean.TRUE.equals(inference.getIsAbnormal()) || !isHealthyLike(diseaseName)
+        String diseaseName = diseaseInfoRepository.findByDiseaseIdAndActiveTrue(label)
+                .map(info -> safeText(info.getDiseaseName()))
+                .filter(name -> name != null)
+                .orElse(label);
+
+        String status = Boolean.TRUE.equals(inference.getIsAbnormal()) || !isHealthyLike(label)
                 ? "ABNORMAL"
                 : "NORMAL";
         return new GrowthDiaryDetailResponse.Disease(status, diseaseName, inference.getConfidence());
